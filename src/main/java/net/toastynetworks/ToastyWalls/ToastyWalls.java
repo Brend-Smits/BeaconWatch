@@ -29,13 +29,16 @@ import org.spongepowered.api.world.storage.WorldProperties;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Optional;
 import java.util.Random;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
-@Plugin(id="toastywalls", name="ToastyWalls", version="1.0")
+@Plugin(id = "toastywalls", name = "ToastyWalls", version = "1.0")
 public class ToastyWalls {
+    HashMap<Integer, Location<World>> beacons = new HashMap<>();
+
     @Inject
     Game game;
     @Inject
@@ -44,13 +47,13 @@ public class ToastyWalls {
     private PluginContainer container;
     public static ToastyWalls instance;
     @Inject
-    @DefaultConfig(sharedRoot=false)
+    @DefaultConfig(sharedRoot = false)
     private Path defaultConfig;
     @Inject
-    @DefaultConfig(sharedRoot=false)
+    @DefaultConfig(sharedRoot = false)
     private ConfigurationLoader<CommentedConfigurationNode> configManager;
     @Inject
-    @ConfigDir(sharedRoot=false)
+    @ConfigDir(sharedRoot = false)
     private Path configDir;
     private ConfigurationNode config;
     public long fullGameTime;
@@ -77,22 +80,22 @@ public class ToastyWalls {
         try {
             this.config = this.configManager.load();
             if (!this.defaultConfig.toFile().exists()) {
-                this.config.getNode(new Object[]{"FullGameTime"}).setValue((Object)1200000);
-                this.config.getNode(new Object[]{"ResourceTime"}).setValue((Object)600000);
-                this.config.getNode(new Object[]{"MinPlayersGameStart"}).setValue((Object)8);
-                this.config.getNode(new Object[]{"MinTeams"}).setValue((Object)2);
-                this.config.getNode(new Object[]{"MaxTeams"}).setValue((Object)5);
-                this.config.getNode(new Object[]{"MinPlayersPerTeam"}).setValue((Object)2);
-                this.config.getNode(new Object[]{"MaxPlayersPerTeam"}).setValue((Object)10);
-                this.config.getNode(new Object[]{"MinDistanceBeacons"}).setValue((Object)100);
-                this.config.getNode(new Object[]{"MaxDistanceBeacons"}).setValue((Object)500);
-                this.config.getNode(new Object[]{"ResourceProtectionRadius"}).setValue((Object)75);
-                this.config.getNode(new Object[]{"ArenaWorldName"}).setValue((Object)"Arena");
-                this.config.getNode(new Object[]{"MinX"}).setValue((Object)20);
-                this.config.getNode(new Object[]{"MinY"}).setValue((Object) 20);
-                this.config.getNode(new Object[]{"MinZ"}).setValue((Object)20);
+                this.config.getNode(new Object[]{"FullGameTime"}).setValue((Object) 1200000);
+                this.config.getNode(new Object[]{"ResourceTime"}).setValue((Object) 600000);
+                this.config.getNode(new Object[]{"MinPlayersGameStart"}).setValue((Object) 8);
+                this.config.getNode(new Object[]{"MinTeams"}).setValue((Object) 2);
+                this.config.getNode(new Object[]{"MaxTeams"}).setValue((Object) 5);
+                this.config.getNode(new Object[]{"MinPlayersPerTeam"}).setValue((Object) 2);
+                this.config.getNode(new Object[]{"MaxPlayersPerTeam"}).setValue((Object) 10);
+                this.config.getNode(new Object[]{"MinDistanceBeacons"}).setValue((Object) 100);
+                this.config.getNode(new Object[]{"MaxDistanceBeacons"}).setValue((Object) 500);
+                this.config.getNode(new Object[]{"ResourceProtectionRadius"}).setValue((Object) 75);
+                this.config.getNode(new Object[]{"ArenaWorldName"}).setValue((Object) "Arena");
+                this.config.getNode(new Object[]{"MinX"}).setValue((Object) 20);
+                this.config.getNode(new Object[]{"MinY"}).setValue((Object) 64);
+                this.config.getNode(new Object[]{"MinZ"}).setValue((Object) 20);
                 this.config.getNode(new Object[]{"MaxX"}).setValue((Object) 700);
-                this.config.getNode(new Object[]{"MaxY"}).setValue((Object) 80);
+                this.config.getNode(new Object[]{"MaxY"}).setValue((Object) 81);
                 this.config.getNode(new Object[]{"MaxZ"}).setValue((Object) 700);
                 this.configManager.save(this.config);
             }
@@ -127,8 +130,7 @@ public class ToastyWalls {
             this.logger.info("------------------------------------");
             this.logger.info("ToastyWalls was successfully loaded!");
             this.logger.info("------------------------------------");
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             this.logger.warn("Error loading and or creating default configuration!");
             this.logger.warn("-------------------------------------------------------------");
             this.logger.warn("ToastyWalls was not loaded correctly due to a config error");
@@ -139,17 +141,17 @@ public class ToastyWalls {
 
     @Listener
     public void userLogin(ClientConnectionEvent.Join event) {
-        Location location = ((World)Sponge.getServer().getWorld(Sponge.getServer().getDefaultWorldName()).get()).getSpawnLocation();
+        Location location = ((World) Sponge.getServer().getWorld(Sponge.getServer().getDefaultWorldName()).get()).getSpawnLocation();
         Player player = event.getTargetEntity();
         player.setLocation(location);
-        this.logger.info("Location of spawn is set to: " + (Object)location);
+        this.logger.info("Location of spawn is set to: " + (Object) location);
     }
 
     public void deleteArena() {
         Optional world = Sponge.getServer().getWorld(this.arenaWorldName);
         if (world.isPresent()) {
             this.logger.info("Deleting arena world...");
-            Sponge.getServer().unloadWorld((World)world.get());
+            Sponge.getServer().unloadWorld((World) world.get());
             Sponge.getServer().deleteWorld(this.getArenaWorldProperties());
         } else {
             this.logger.info("World does not exist, so it can't be removed.");
@@ -167,14 +169,13 @@ public class ToastyWalls {
                 this.logger.info("Loading now...");
                 Sponge.getServer().loadWorld(properties);
             }
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     public WorldProperties getArenaWorldProperties() {
-        return (WorldProperties)Sponge.getServer().getWorldProperties(this.arenaWorldName).get();
+        return (WorldProperties) Sponge.getServer().getWorldProperties(this.arenaWorldName).get();
     }
 
     public void placeBeacon(Location<World> blockloc) {
@@ -185,43 +186,49 @@ public class ToastyWalls {
         int yMin = this.MinY;
         int yMax = this.MaxY;
         int y = yMax;
+        int beacon = 0;
         this.logger.info("Printing debug message: - before " + "yMin: " + yMin);
         this.logger.info("Printing debug message: - before " + "yMax: " + yMax);
         this.logger.info("Printing debug message: - before " + "y: " + y);
         Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
         Location loc = world.get().getLocation(x, y, z);
         if (world.isPresent()) {
-            while (yMin <= y) {
-                this.logger.info("Printing debug message:" + "yMin: " + yMin);
-                this.logger.info("Printing debug message:" + "y: " + y);
-                loc = world.get().getLocation(x, y, z);
-                if (loc.getExtent().isLoaded()) {
-                    Vector3i chunk = loc.getChunkPosition();
-                    Sponge.getServer().getWorld(this.arenaWorldName).get().loadChunk(chunk, true);
-                    this.logger.info("Chunk generated on: " + chunk);
-                }
-                if (loc.getBlockType().equals(BlockTypes.AIR)) {
-                    this.logger.info("Block type: " + loc.getBlockType().getName());
-                    this.logger.info("Passed check 1 (air)");
-                    y--;
-                    continue;
-                }
-                if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
-                    this.logger.info("Passed check 2 (solid block)");
-                    if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
-                        this.logger.info("Passed check 3 (Air above solid block)");
-                        y = (int) loc.getY();
-                        this.logger.info("Found a good location! " + "Coordinate Y: " + y);
-                        break;
-                    } else {
-                        this.logger.info("Passed check 4 (if no air above solid block)");
+            //issue is that this does not generate new X & Z coordinates, this needs to be fixed.
+            while (beacon <= 3) {
+                beacon++;
+                while (yMin <= y) {
+                    this.logger.info("Printing debug message:" + "yMin: " + yMin);
+                    this.logger.info("Printing debug message:" + "y: " + y);
+                    loc = world.get().getLocation(x, y, z);
+                    if (loc.getExtent().isLoaded()) {
+                        Vector3i chunk = loc.getChunkPosition();
+                        Sponge.getServer().getWorld(this.arenaWorldName).get().loadChunk(chunk, true);
+                        this.logger.info("Chunk generated on: " + chunk);
+                    }
+                    if (loc.getBlockType().equals(BlockTypes.AIR)) {
+                        this.logger.info("Block type: " + loc.getBlockType().getName());
+                        this.logger.info("Passed check 1 (air)");
                         y--;
                         continue;
                     }
+                    if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
+                        this.logger.info("Passed check 2 (solid block)");
+                        if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
+                            this.logger.info("Passed check 3 (Air above solid block)");
+                            y = (int) loc.getY();
+                            beacons.put(beacon, loc);
+                            this.logger.info("Found a good location! " + "Coordinate Y: " + y);
+                            break;
+                        } else {
+                            this.logger.info("Passed check 4 (if no air above solid block)");
+                            y--;
+                            continue;
+                        }
+                    }
+                    //if there is no valid location, set y to -1
+                    y = -1;
+                    this.logger.info("Line 218: " + y);
                 }
-                //if there is no valid location, set y to -1
-                y = -1;
-                this.logger.info("Line 218: " + y);
             }
             if (y == -1) {
                 this.logger.info("Could not find any coordinates! " + "Y coordinate is: " + loc.getY());
@@ -269,6 +276,7 @@ public class ToastyWalls {
     public void afterInit(GameStartedServerEvent event) {
         this.createArena();
         this.placeBeacon(calculateRandomBeacon());
+        this.logger.info("Hashmap values are:" + beacons.get(1) + " " + beacons.get(2) + " " + beacons.get(3));
     }
 
     @Listener
