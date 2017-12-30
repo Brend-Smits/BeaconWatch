@@ -94,10 +94,10 @@ public class ToastyWalls {
                 this.config.getNode(new Object[]{"ResourceProtectionRadius"}).setValue((Object)75);
                 this.config.getNode(new Object[]{"ArenaWorldName"}).setValue((Object)"Arena");
                 this.config.getNode(new Object[]{"MinX"}).setValue((Object)20);
-                this.config.getNode(new Object[]{"MinY"}).setValue((Object)0);
+                this.config.getNode(new Object[]{"MinY"}).setValue((Object) 60);
                 this.config.getNode(new Object[]{"MinZ"}).setValue((Object)20);
                 this.config.getNode(new Object[]{"MaxX"}).setValue((Object)100);
-                this.config.getNode(new Object[]{"MaxY"}).setValue((Object)120);
+                this.config.getNode(new Object[]{"MaxY"}).setValue((Object) 80);
                 this.config.getNode(new Object[]{"MaxZ"}).setValue((Object)100);
                 this.configManager.save(this.config);
             }
@@ -116,7 +116,7 @@ public class ToastyWalls {
             this.MinY = this.config.getNode(new Object[]{"MinY"}).getInt();
             this.MinZ = this.config.getNode(new Object[]{"MinZ"}).getInt();
             this.MaxX = this.config.getNode(new Object[]{"MaxX"}).getInt();
-            this.MinY = this.config.getNode(new Object[]{"MaxY"}).getInt();
+            this.MaxY = this.config.getNode(new Object[]{"MaxY"}).getInt();
             this.MaxZ = this.config.getNode(new Object[]{"MaxZ"}).getInt();
             this.logger.info("Full game time is set to: " + this.fullGameTime);
             this.logger.info("Resource phase time set to: " + this.resourceTime);
@@ -186,70 +186,82 @@ public class ToastyWalls {
         blockloc.setBlockType(BlockTypes.BEACON, Cause.source(container).build());
     }
 
-    public Location<World> getRandomLocation(World world) {
-        Random random = new Random();
-        int xMin = this.MinX;
+    public int calculateBeaconY(int x, int z) {
         int yMin = this.MinY;
+        int yMax = this.MaxY;
+        int y = yMax;
+        this.logger.info("Printing debug message: - before " + "yMin: " + yMin);
+        this.logger.info("Printing debug message: - before " + "yMax: " + yMax);
+        this.logger.info("Printing debug message: - before " + "y: " + y);
+        Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
+        Location loc = world.get().getLocation(x, y, z);
+        if (world.isPresent()) {
+            while (yMin <= y) {
+                this.logger.info("Printing debug message:" + "yMin: " + yMin);
+                this.logger.info("Printing debug message:" + "y: " + y);
+                if (loc.getBlockType().equals(BlockTypes.AIR)) {
+                    y--;
+                    continue;
+                }
+                if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
+                    if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
+                        y = (int) loc.getY();
+                        this.logger.info("Found a good location! - line:209 " + y);
+                        break;
+                    } else {
+                        y--;
+                        continue;
+                    }
+                }
+                //if there is no valid location, set y to -1
+                y = -1;
+                this.logger.info("Line 218: " + y);
+            }
+            if (y == -1) {
+                this.logger.info("Could not find any coordinates! " + "Y coordinate is: " + loc.getY());
+                this.logger.info("That sucks.." + "Y variable is set to: " + y);
+            } else {
+                this.logger.info("Found some juicy coordinates! " + "Y coordinate is: " + loc.getY());
+                this.logger.info("Just for testing purposes, variable Y= " + y);
+                this.logger.info("Just for testing purposes, variable yMax= " + yMax);
+            }
+        } else {
+            this.logger.warn(this.arenaWorldName + " world could not be found!");
+        }
+        return y;
+    }
+
+    public Location<World> calculateRandomBeacon() {
+        Random random = new Random();
+        World world = Sponge.getServer().getWorld(this.arenaWorldName).get();
+        int xMin = this.MinX;
         int zMin = this.MinZ;
         int xMax = this.MaxX;
-        int yMax = this.MaxY;
         int zMax = this.MaxZ;
 
         int x = random.nextInt((Math.abs(xMax - (xMin) + 1) + (xMin)));
-        int y = random.nextInt((Math.abs(yMax - (yMin) + 1) + (yMin)));
         int z = random.nextInt((Math.abs(zMax - (zMin) + 1) + (zMin)));
 
-//        int x = (int)Math.random();
-//        int y = (int)Math.random();
-//        int z = (int)Math.random();
-        return world.getLocation(x,y,z);
-    }
-
-    public Location<World> getRandomBeaconLocation(World world) {
-
+        int y = calculateBeaconY(x, z);
+        if (y != -1) {
+            return world.getLocation(x, y, z);
+        } else if (y == -1) {
+            x = random.nextInt((Math.abs(xMax - (xMin) + 1) + (xMin)));
+            z = random.nextInt((Math.abs(zMax - (zMin) + 1) + (zMin)));
+            this.logger.info("y = -1, recalculating...");
+            y = calculateBeaconY(x, z);
+            return world.getLocation(x, y, z);
+        } else {
+            this.logger.warn("Something didn't go as planned!");
+        }
+        this.logger.info("Reached final - Line 256");
+        return null;
     }
 
     @Listener
     public void afterInit(GameStartedServerEvent event) {
         this.createArena();
-//        Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
-//        if (world.isPresent()) {
-//            Location location = getRandomLocation(world.get());
-//            if (location.getBlockType() == BlockTypes.AIR) {
-//                this.placeBeacon(location);
-//                this.logger.info("Location: " + location);
-//                this.logger.info("Beacons placed at: " + (Object)location);
-//            } else {
-//                this.logger.error("Not location could be found to place beacons ");
-//                Location location2 = getRandomLocation(world.get());
-//                this.placeBeacon(location2);
-//            }
-//        } else {
-//            this.logger.error("Beacons have not been placed due to world not being available");
-//        }
-//
-        int maxAttempts = 1000;
-        int attempts = 0;
-        Location<World> location = null;
-        Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
-        if (world.isPresent()) {
-            while (location == null && attempts < maxAttempts) {
-                attempts++;
-                Location randomLocation = getRandomLocation(world.get());
-                if (randomLocation.getBlockType().equals(BlockTypes.AIR) && randomLocation.add(0,1,0).getBlockType().equals(BlockTypes.AIR) && randomLocation.add(1,0,0).getBlockType().equals(BlockTypes.AIR) && randomLocation.add(0,0,1).getBlockType().equals(BlockTypes.AIR)) {
-                    this.placeBeacon(randomLocation);
-                    location = randomLocation;
-                    this.logger.info("Beacons successfully placed at: " + location + " after " + attempts + " Attempts!");
-                } else {
-                    String item = randomLocation.getBlockType().getName();
-                    this.logger.info("Random location already taken at: " + randomLocation + " with block name: " + item);
-                }
-            }
-            if (location == null) {
-                this.logger.error("Could not find suitable location for beacons after: " + attempts + " attempts!");
-            }
-        }
-
+        this.placeBeacon(calculateRandomBeacon());
     }
 
     @Listener
