@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/toastywalls.iml" filepath="$PROJECT_DIR$/.idea/modules/toastywalls.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/toastywalls_main.iml" filepath="$PROJECT_DIR$/.idea/modules/toastywalls_main.iml" group="toastywalls" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/toastywalls_test.iml" filepath="$PROJECT_DIR$/.idea/modules/toastywalls_test.iml" group="toastywalls" />
+    </modules>
+  </component>
+</project>
