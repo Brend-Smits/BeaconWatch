@@ -1,22 +1,18 @@
 package net.toastynetworks.ToastyWalls;
 
-import com.flowpowered.math.vector.Vector3d;
+import com.flowpowered.math.vector.Vector3i;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.spongepowered.api.Game;
 import org.spongepowered.api.Sponge;
-import org.spongepowered.api.block.BlockSnapshot;
-import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
-import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
-import org.spongepowered.api.event.game.state.GamePostInitializationEvent;
 import org.spongepowered.api.event.game.state.GameStartedServerEvent;
 import org.spongepowered.api.event.game.state.GameStoppingEvent;
 import org.spongepowered.api.event.network.ClientConnectionEvent;
@@ -28,7 +24,6 @@ import javax.inject.Inject;
 import org.slf4j.Logger;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
-import org.spongepowered.api.world.WorldArchetype;
 import org.spongepowered.api.world.WorldArchetypes;
 import org.spongepowered.api.world.storage.WorldProperties;
 
@@ -94,11 +89,11 @@ public class ToastyWalls {
                 this.config.getNode(new Object[]{"ResourceProtectionRadius"}).setValue((Object)75);
                 this.config.getNode(new Object[]{"ArenaWorldName"}).setValue((Object)"Arena");
                 this.config.getNode(new Object[]{"MinX"}).setValue((Object)20);
-                this.config.getNode(new Object[]{"MinY"}).setValue((Object) 60);
+                this.config.getNode(new Object[]{"MinY"}).setValue((Object) 20);
                 this.config.getNode(new Object[]{"MinZ"}).setValue((Object)20);
-                this.config.getNode(new Object[]{"MaxX"}).setValue((Object)100);
+                this.config.getNode(new Object[]{"MaxX"}).setValue((Object) 700);
                 this.config.getNode(new Object[]{"MaxY"}).setValue((Object) 80);
-                this.config.getNode(new Object[]{"MaxZ"}).setValue((Object)100);
+                this.config.getNode(new Object[]{"MaxZ"}).setValue((Object) 700);
                 this.configManager.save(this.config);
             }
             this.fullGameTime = this.config.getNode(new Object[]{"FullGameTime"}).getLong();
@@ -199,16 +194,27 @@ public class ToastyWalls {
             while (yMin <= y) {
                 this.logger.info("Printing debug message:" + "yMin: " + yMin);
                 this.logger.info("Printing debug message:" + "y: " + y);
+                loc = world.get().getLocation(x, y, z);
+                if (loc.getExtent().isLoaded()) {
+                    Vector3i chunk = loc.getChunkPosition();
+                    Sponge.getServer().getWorld(this.arenaWorldName).get().loadChunk(chunk, true);
+                    this.logger.info("Chunk generated on: " + chunk);
+                }
                 if (loc.getBlockType().equals(BlockTypes.AIR)) {
+                    this.logger.info("Block type: " + loc.getBlockType().getName());
+                    this.logger.info("Passed check 1 (air)");
                     y--;
                     continue;
                 }
                 if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
+                    this.logger.info("Passed check 2 (solid block)");
                     if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
+                        this.logger.info("Passed check 3 (Air above solid block)");
                         y = (int) loc.getY();
-                        this.logger.info("Found a good location! - line:209 " + y);
+                        this.logger.info("Found a good location! " + "Coordinate Y: " + y);
                         break;
                     } else {
+                        this.logger.info("Passed check 4 (if no air above solid block)");
                         y--;
                         continue;
                     }
@@ -244,6 +250,7 @@ public class ToastyWalls {
 
         int y = calculateBeaconY(x, z);
         if (y != -1) {
+            this.logger.info("Final beacon destination: " + world.getLocation(x, y, z));
             return world.getLocation(x, y, z);
         } else if (y == -1) {
             x = random.nextInt((Math.abs(xMax - (xMin) + 1) + (xMin)));
@@ -254,7 +261,7 @@ public class ToastyWalls {
         } else {
             this.logger.warn("Something didn't go as planned!");
         }
-        this.logger.info("Reached final - Line 256");
+        this.logger.info("Reached final - Method calculateRandomBeacons");
         return null;
     }
 
