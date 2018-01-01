@@ -271,6 +271,15 @@ public class ToastyWalls {
                 event.setCancelled(true);
             }
         } else if (this.phase == GamePhase.PVP) {
+            if (event.getTargetEntity() instanceof Player) {
+                Player targetplayer = ((Player) event.getTargetEntity()).getPlayer().get();
+                for (Team team : this.teams.values()) {
+                    if (team.getPlayers().containsKey(targetplayer.getUniqueId())) {
+                        event.setCancelled(true);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -283,6 +292,20 @@ public class ToastyWalls {
                 if (blockType == BlockTypes.BEACON) {
                     event.setCancelled(true);
                     trans.setValid(false);
+                }
+            }
+        } else if (this.phase == GamePhase.PVP) {
+            for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+                BlockSnapshot blockSnapshot = trans.getOriginal();
+                BlockType blockType = blockSnapshot.getState().getType();
+                if (blockType == BlockTypes.BEACON) {
+                    for (Team team : this.teams.values()) {
+                        if (team.getPlayers().containsKey(source.getUniqueId())) {
+                            event.setCancelled(true);
+                            trans.setValid(false);
+                            break;
+                        }
+                    }
                 }
             }
         }
