@@ -34,7 +34,9 @@ import javax.inject.Inject;
 
 import org.slf4j.Logger;
 import org.spongepowered.api.scheduler.Task;
+import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColor;
+import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 import org.spongepowered.api.world.WorldArchetypes;
@@ -276,6 +278,7 @@ public class ToastyWalls {
                 for (Team team : this.teams.values()) {
                     if (team.getPlayers().containsKey(targetplayer.getUniqueId())) {
                         event.setCancelled(true);
+                        source.sendMessage(Text.of(TextColors.RED, "Fight the enemy, not your team, fool!"));
                         break;
                     }
                 }
