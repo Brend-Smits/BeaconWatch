@@ -1,16 +1,28 @@
 package net.toastynetworks.ToastyWalls;
 
+import com.flowpowered.math.vector.Vector3d;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 import org.spongepowered.api.Game;
 import org.spongepowered.api.Sponge;
+import org.spongepowered.api.block.BlockSnapshot;
+import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
+import org.spongepowered.api.data.Transaction;
+import org.spongepowered.api.data.manipulator.mutable.PotionEffectData;
+import org.spongepowered.api.effect.potion.PotionEffect;
+import org.spongepowered.api.effect.potion.PotionEffectTypes;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.event.Listener;
+import org.spongepowered.api.event.block.ChangeBlockEvent;
 import org.spongepowered.api.event.cause.Cause;
+import org.spongepowered.api.event.entity.DamageEntityEvent;
+import org.spongepowered.api.event.entity.MoveEntityEvent;
+import org.spongepowered.api.event.entity.living.humanoid.player.RespawnPlayerEvent;
+import org.spongepowered.api.event.filter.cause.First;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
 import org.spongepowered.api.event.game.state.GameStartedServerEvent;
 import org.spongepowered.api.event.game.state.GameStoppingEvent;
@@ -21,6 +33,7 @@ import org.spongepowered.api.plugin.PluginContainer;
 import javax.inject.Inject;
 
 import org.slf4j.Logger;
+import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
@@ -30,6 +43,7 @@ import org.spongepowered.api.world.storage.WorldProperties;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 
 @Plugin(id = "toastywalls", name = "ToastyWalls", version = "1.0")
@@ -93,7 +107,7 @@ public class ToastyWalls {
             this.fullGameTime = this.config.getNode("FullGameTime").getLong();
             this.resourceTime = this.config.getNode("ResourceTime").getLong();
             this.minPlayersGameStart = this.config.getNode("MinPlayersGameStart").getInt();
-            this.resourceProtectionRadius = this.config.getNode("ResourceProtectionRadius").getInt();
+            this.resourceProtectionRadius = (int) Math.pow(this.config.getNode("ResourceProtectionRadius").getInt(), 2);
             this.arenaWorldName = this.config.getNode("ArenaWorldName").getString();
             this.teamCount = this.config.getNode("TeamCount").getInt();
             this.playersPerTeam = this.config.getNode("PlayersPerTeam").getInt();
@@ -131,25 +145,30 @@ public class ToastyWalls {
                 this.phase = GamePhase.RESOURCE;
                 this.logger.info("Resource phase starting");
 
-                List<TeamMember> members = new ArrayList<>();
+                Map<UUID, TeamMember> members = new HashMap<>();
                 Collection<TextColor> colors = Sponge.getRegistry().getAllOf(TextColor.class);
                 Iterator<TextColor> colorsIterator = colors.iterator();
                 for (Player p : Sponge.getServer().getOnlinePlayers()) {
-                    members.add(new TeamMember(p.getUniqueId()));
+                    members.put(p.getUniqueId(), new TeamMember(p.getUniqueId()));
                     if (members.size() == this.playersPerTeam) {
                         TextColor teamColor = colorsIterator.next();
                         Team team = new Team(teamColor, members, this.calculateRandomBeacon());
                         this.teams.put(teamColor, team);
                         this.placeBeacon(team.getBeacon());
                         this.logger.info("New team: " + team.toString());
-                        for (TeamMember member : members) {
+                        for (TeamMember member : members.values()) {
                             Player teamPlayer = member.getPlayer().get();
                             teamPlayer.setLocation(team.getBeacon());
                             this.logger.info(teamPlayer + " was sent to beacon location: " + team.getBeacon());
                         }
-                        members = new ArrayList<>();
+                        members = new HashMap<>();
                     }
                 }
+                Task.builder().execute(() -> {
+                    this.phase = GamePhase.PVP;
+                    this.logger.info("Resource phase is over!");
+                    this.logger.info("PVP phase has began!");
+                }).delay(resourceTime, TimeUnit.MILLISECONDS).submit(this);
             }
         }
     }
@@ -243,5 +262,60 @@ public class ToastyWalls {
     @Listener
     public void gameStop(GameStoppingEvent event) {
         this.deleteArena();
+    }
+
+    @Listener
+    public void onDamageEntity(DamageEntityEvent event, @First Player source) {
+        if (this.phase == GamePhase.RESOURCE) {
+            if (event.getTargetEntity() instanceof Player) {
+                event.setCancelled(true);
+            }
+        } else if (this.phase == GamePhase.PVP) {
+        }
+    }
+
+    @Listener
+    public void onBlockBreak(ChangeBlockEvent.Break event, @First Player source) {
+        if (this.phase == GamePhase.RESOURCE) {
+            for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+                BlockSnapshot blockSnapshot = trans.getOriginal();
+                BlockType blockType = blockSnapshot.getState().getType();
+                if (blockType == BlockTypes.BEACON) {
+                    event.setCancelled(true);
+                    trans.setValid(false);
+                }
+            }
+        }
+    }
+
+    @Listener
+    public void onEntityMovement(MoveEntityEvent event, @First Player source) {
+        Vector3d location = event.getFromTransform().getPosition();
+        for (Team team : this.teams.values()) {
+            if (!team.getPlayers().containsKey(source.getUniqueId())) {
+                if (location.distanceSquared(team.getBeacon().getPosition()) < this.resourceProtectionRadius) {
+                    PotionEffect blindness = PotionEffect.builder().potionType(PotionEffectTypes.BLINDNESS).duration(20).build();
+                    PotionEffect wither = PotionEffect.builder().potionType(PotionEffectTypes.WITHER).duration(20).build();
+                    PotionEffect mining = PotionEffect.builder().potionType(PotionEffectTypes.MINING_FATIGUE).duration(20).amplifier(10).build();
+                    PotionEffectData effects = source.getOrCreate(PotionEffectData.class).get();
+                    effects.addElement(blindness);
+                    effects.addElement(wither);
+                    effects.addElement(mining);
+                    source.offer(effects);
+                    break;
+                }
+            }
+        }
+    }
+
+    @Listener
+    public void onPlayerRespawn(RespawnPlayerEvent event) {
+        Player player = event.getOriginalPlayer();
+        for (Team team : this.teams.values()) {
+            if (team.getPlayers().containsKey(player.getUniqueId())) {
+                event.setToTransform(event.getToTransform().setLocation(team.getBeacon()));
+                break;
+            }
+        }
     }
 }
