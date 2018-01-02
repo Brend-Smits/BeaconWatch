@@ -49,11 +49,7 @@ import java.util.concurrent.TimeUnit;
 
 
 /**
- * @author Brend
- *
- */
-/**
- * @author Brend
+ * @author Rubbertjuh
  *
  */
 @Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.0")
