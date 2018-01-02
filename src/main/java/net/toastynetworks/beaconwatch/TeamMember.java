@@ -1,4 +1,4 @@
-package net.toastynetworks.ToastyWalls;
+package net.toastynetworks.beaconwatch;
 
 import org.spongepowered.api.Sponge;
 import org.spongepowered.api.entity.living.player.Player;

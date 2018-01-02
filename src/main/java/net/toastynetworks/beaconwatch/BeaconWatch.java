@@ -1,4 +1,4 @@
-package net.toastynetworks.ToastyWalls;
+package net.toastynetworks.beaconwatch;
 
 import com.flowpowered.math.vector.Vector3d;
 import ninja.leaping.configurate.ConfigurationNode;
@@ -48,8 +48,16 @@ import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 
-@Plugin(id = "toastywalls", name = "ToastyWalls", version = "1.0")
-public class ToastyWalls {
+/**
+ * @author Brend
+ *
+ */
+/**
+ * @author Brend
+ *
+ */
+@Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.0")
+public class BeaconWatch {
 
     @Inject
     Game game;
@@ -57,7 +65,7 @@ public class ToastyWalls {
     private Logger logger;
     @Inject
     private PluginContainer container;
-    public static ToastyWalls instance;
+    public static BeaconWatch instance;
     @Inject
     @DefaultConfig(sharedRoot = false)
     private Path defaultConfig;
@@ -238,6 +246,10 @@ public class ToastyWalls {
         return -1;
     }
 
+    /**
+     * Calculates random beacon location
+     * @return valid location of beacon, null if not found
+     */
     public Location<World> calculateRandomBeacon() {
         World world = Sponge.getServer().getWorld(this.arenaWorldName).get();
         for (int attempts = 0; attempts < 10000; attempts++) {
@@ -256,7 +268,13 @@ public class ToastyWalls {
         return null;
     }
 
-    //Method to get the team of a player with UUID
+
+    /**
+     * Get the team for the specified player's UUID
+     * 
+     * @param uuid the UUID for the player
+     * @return the Team for the player, or null if not found
+     */
     public Team getTeam(UUID uuid) {
         //Loop through all teams and get values
         for (Team team : this.teams.values()) {

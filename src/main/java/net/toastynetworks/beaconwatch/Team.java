@@ -1,12 +1,11 @@
-package net.toastynetworks.ToastyWalls;
+package net.toastynetworks.beaconwatch;
+
+import java.util.Map;
+import java.util.UUID;
 
 import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
-
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
 public class Team {
     private TextColor color;
