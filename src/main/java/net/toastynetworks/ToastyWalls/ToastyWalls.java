@@ -256,6 +256,18 @@ public class ToastyWalls {
         return null;
     }
 
+    //Method to get the team of a player with UUID
+    public Team getTeam(UUID uuid) {
+        //Loop through all teams and get values
+        for (Team team : this.teams.values()) {
+            //Check if specified player is in a team
+            if (team.getPlayers().containsKey(uuid)) {
+                return team;
+            }
+        }
+        return null;
+    }
+
     @Listener
     public void afterInit(GameStartedServerEvent event) {
         this.createArena();
@@ -274,13 +286,12 @@ public class ToastyWalls {
             }
         } else if (this.phase == GamePhase.PVP) {
             if (event.getTargetEntity() instanceof Player) {
-                Player targetplayer = ((Player) event.getTargetEntity()).getPlayer().get();
-                for (Team team : this.teams.values()) {
-                    if (team.getPlayers().containsKey(targetplayer.getUniqueId())) {
-                        event.setCancelled(true);
-                        source.sendMessage(Text.of(TextColors.RED, "Fight the enemy, not your team, fool!"));
-                        break;
-                    }
+                Player targetplayer = (Player) event.getTargetEntity();
+                //Find out if the source of the damage is in the same team of the target(player)
+                Team sourceTeam = this.getTeam(source.getUniqueId());
+                if (sourceTeam.getPlayers().containsKey(targetplayer.getUniqueId())) {
+                    event.setCancelled(true);
+                    source.sendMessage(Text.of(TextColors.RED, "Fight the enemy, not your team, fool!"));
                 }
             }
         }
@@ -300,13 +311,15 @@ public class ToastyWalls {
         } else if (this.phase == GamePhase.PVP) {
             for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
                 BlockSnapshot blockSnapshot = trans.getOriginal();
-                BlockType blockType = blockSnapshot.getState().getType();
-                if (blockType == BlockTypes.BEACON) {
-                    for (Team team : this.teams.values()) {
-                        if (team.getPlayers().containsKey(source.getUniqueId())) {
+                if (blockSnapshot.getLocation().isPresent()) {
+                    BlockType blockType = blockSnapshot.getState().getType();
+                    if (blockType == BlockTypes.BEACON) {
+                        //Find out if the beacon that source is breaking is from their own team
+                        Team sourceTeam = this.getTeam(source.getUniqueId());
+                        if (sourceTeam.getBeacon().equals(blockSnapshot.getLocation().get())) {
                             event.setCancelled(true);
                             trans.setValid(false);
-                            break;
+                            source.sendMessage(Text.of(TextColors.RED, "Stop trying to destroy your own beacon.."));
                         }
                     }
                 }
