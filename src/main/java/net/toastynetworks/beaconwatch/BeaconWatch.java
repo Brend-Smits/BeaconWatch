@@ -22,6 +22,7 @@ import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
 import org.spongepowered.api.data.Transaction;
+import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.manipulator.mutable.PotionEffectData;
 import org.spongepowered.api.effect.potion.PotionEffect;
 import org.spongepowered.api.effect.potion.PotionEffectTypes;
@@ -155,8 +156,7 @@ public class BeaconWatch {
 	public void userLogin(ClientConnectionEvent.Join event) {
 		if (this.phase != GamePhase.PREGAME) {
 			Player player = event.getTargetEntity();
-			player.gameMode().set(GameModes.SPECTATOR);
-
+			player.offer(Keys.GAME_MODE, GameModes.SPECTATOR);
 		}
 		if (this.phase == GamePhase.PREGAME) {
 			Location<World> spawnLocation = Sponge.getServer().getWorld(Sponge.getServer().getDefaultWorldName()).get().getSpawnLocation();
@@ -192,6 +192,7 @@ public class BeaconWatch {
 					this.phase = GamePhase.PVP;
 					this.logger.info("Resource phase is over!");
 					this.logger.info("PVP phase has began!");
+					Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "End of Resource Phase, moving onto PVP Phase!"));
 				}).delay(resourceTime, TimeUnit.MILLISECONDS).submit(this);
 
 				Task.builder().execute(task -> {
@@ -221,6 +222,24 @@ public class BeaconWatch {
 				}).intervalTicks(20).submit(this);
 			}
 		}
+		if (this.phase == GamePhase.PVP || this.phase == GamePhase.RESOURCE || this.phase == GamePhase.ENDGAME) {
+			Player player = event.getTargetEntity();
+			for (Team team : this.teams.values()) {
+				if (team.getPlayers().containsKey(player.getUniqueId())) { 
+					if (team.isDefeated() == true) {
+						player.offer(Keys.GAME_MODE, GameModes.SPECTATOR);
+					} else {
+						player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
+					}
+				}
+			}
+		}
+	}
+	
+	@Listener
+	public void onUserLogout(ClientConnectionEvent.Disconnect event) {
+			Player player = event.getTargetEntity();
+			player.offer(Keys.GAME_MODE, GameModes.SPECTATOR);	
 	}
 	
 	public Location<World> calculateNewTeamBeaconLocation() {
@@ -364,6 +383,29 @@ public class BeaconWatch {
 		}
 		return null;
 	}
+	
+	/**
+	 * Check if Team is winner by checking amount of undefeated teams.
+	 * 
+	 * @return false if more than 1 team is undefeated, otherwise return true
+	 */
+	public boolean isTeamWinner() {
+		int counter = 0;
+		for (Team team : this.teams.values()) {
+			if (team.isDefeated() == false) {
+				counter++;
+				if (counter > 1) {
+					this.logger.info("RIP - No winner this time.");
+					return false;
+				} else {
+					this.logger.info("Winner! Winner! Chicken dinner!");
+					Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "We have a winner! Congrats Team: ", team.getColor().toString()));
+					return true;
+				}
+			}
+		}
+		return false;
+	}
 
 	@Listener
 	public void afterInit(GameStartedServerEvent event) {
@@ -429,6 +471,9 @@ public class BeaconWatch {
 									team.setGameMode(GameModes.SPECTATOR);
 									Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, team.getColor().toString(), " beacon has been destroyed!"));
 									this.logger.info("Beacon has been destroyed!");
+									if (isTeamWinner() == true) {
+										this.phase = GamePhase.ENDGAME;
+									}
 									//Check if all teams but source team have been defeated. -> Game Ends -> Source team Winner.
 								}
 							}

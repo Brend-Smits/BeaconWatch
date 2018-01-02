@@ -3,11 +3,8 @@ package net.toastynetworks.beaconwatch;
 import java.util.Map;
 import java.util.UUID;
 
-import org.spongepowered.api.data.key.Key;
 import org.spongepowered.api.data.key.Keys;
-import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.entity.living.player.gamemode.GameMode;
-import org.spongepowered.api.entity.living.player.gamemode.GameModes;
 import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
@@ -51,6 +48,7 @@ public class Team {
 			}
 		}
 	}
+
 
 	@Override
     public String toString() {
