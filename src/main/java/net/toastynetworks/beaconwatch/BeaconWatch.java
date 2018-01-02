@@ -140,7 +140,7 @@ public class BeaconWatch {
 			this.logger.info("Protection radius for resource phase is set to: " + this.resourceProtectionRadius);
 			this.logger.info("Arena world is set to: " + this.arenaWorldName);
 			this.logger.info("------------------------------------");
-			this.logger.info("ToastyWalls was successfully loaded!");
+			this.logger.info("BeaconWatch was successfully loaded!");
 			this.logger.info("------------------------------------");
 		} catch (IOException e) {
 			this.logger.warn("Error loading and or creating default configuration!");
