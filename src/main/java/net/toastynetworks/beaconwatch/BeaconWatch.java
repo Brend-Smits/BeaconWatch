@@ -319,7 +319,6 @@ public class BeaconWatch {
 	public int calculateBeaconY(int x, int z) {
 		this.logger.info("Printing debug message: - before " + "yMin: " + this.minY);
 		this.logger.info("Printing debug message: - before " + "yMax: " + this.maxY);
-		//this.logger.info("Printing debug message: - before " + "y: " + y);
 		World world = Sponge.getServer().getWorld(this.arenaWorldName).get();
 
 		for (int y = this.maxY; y >= this.minY; y--) {
