@@ -3,6 +3,8 @@ package net.toastynetworks.beaconwatch;
 import java.util.Map;
 import java.util.UUID;
 
+import org.spongepowered.api.data.key.Key;
+import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.entity.living.player.Player;
 import org.spongepowered.api.entity.living.player.gamemode.GameMode;
 import org.spongepowered.api.entity.living.player.gamemode.GameModes;
@@ -45,7 +47,7 @@ public class Team {
 	public void setGameMode(GameMode gameMode) {
 		for (TeamMember member : players.values()) {
 			if (member.getPlayer().isPresent()) {
-				member.getPlayer().get().gameMode().set(gameMode);
+				member.getPlayer().get().offer(Keys.GAME_MODE, gameMode);
 			}
 		}
 	}
