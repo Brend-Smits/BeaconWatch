@@ -1,8 +1,0 @@
-<component name="ArtifactManager">
-  <artifact type="jar" name="ToastyWalls">
-    <output-path>$USER_HOME$/Desktop/Sponge development - Java/SpongeVanilla server/mods</output-path>
-    <root id="archive" name="ToastyWalls.jar">
-      <element id="module-output" name="toastywalls_main" />
-    </root>
-  </artifact>
-</component>
