@@ -19,9 +19,11 @@ import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
+import org.spongepowered.api.data.DataTransactionResult;
 import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.manipulator.mutable.PotionEffectData;
+import org.spongepowered.api.data.manipulator.mutable.entity.HealthData;
 import org.spongepowered.api.effect.potion.PotionEffect;
 import org.spongepowered.api.effect.potion.PotionEffectTypes;
 import org.spongepowered.api.entity.living.player.Player;
@@ -171,10 +173,12 @@ public class BeaconWatch {
 			Player player = event.getTargetEntity();
 			player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
 			player.setLocation(spawnLocation);
+			healPlayer(player);
 			this.logger.info("Location of spawn is set to: " + spawnLocation);
 			player.getInventory().clear();
 			if (getSurvivalPlayerCount() >= this.minPlayersGameStart) {
 				this.phase = GamePhase.RESOURCE;
+				healPlayer(player);
 				GamePhaseChangeEvent changeEvent = new GamePhaseChangeEvent.Resource(Cause.source(this).build());
 				Sponge.getEventManager().post(changeEvent);
 			}
@@ -187,6 +191,16 @@ public class BeaconWatch {
 				player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
 			}
 		}
+	}
+	
+	/**
+	 * Sets the user to max health and max hunger level
+	 * @param player
+	 */
+	public void healPlayer(Player player) {
+		int maxHunger = 20;
+		player.offer(Keys.FOOD_LEVEL, maxHunger);
+		player.offer(Keys.HEALTH, player.get(Keys.MAX_HEALTH).get());
 	}
 	
 	/**
