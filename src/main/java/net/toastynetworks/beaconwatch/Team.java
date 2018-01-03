@@ -5,23 +5,22 @@ import java.util.UUID;
 
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.entity.living.player.gamemode.GameMode;
-import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
 
 public class Team {
-    private TextColor color;
+    private TeamColor color;
     private Map<UUID, TeamMember> players;
     private Location<World> beacon;
     private boolean defeated;
 
-    public Team(TextColor color, Map<UUID, TeamMember> players, Location<World> beacon) {
+    public Team(TeamColor color, Map<UUID, TeamMember> players, Location<World> beacon) {
         this.color = color;
         this.players = players;
         this.beacon = beacon;
     }
 
-    public TextColor getColor() {
+    public TeamColor getColor() {
         return color;
     }
 

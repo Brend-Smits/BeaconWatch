@@ -2,9 +2,7 @@ package net.toastynetworks.beaconwatch;
 
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -43,7 +41,6 @@ import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
 import org.spongepowered.api.scheduler.Task;
 import org.spongepowered.api.text.Text;
-import org.spongepowered.api.text.format.TextColor;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.Location;
 import org.spongepowered.api.world.World;
@@ -97,7 +94,7 @@ public class BeaconWatch {
 	public int teamCount;
 	Random random = new Random();
 	GamePhase phase = GamePhase.PREGAME;
-	Map<TextColor, Team> teams = new HashMap<>();
+	Map<TeamColor, Team> teams = new HashMap<>();
 
 	@Listener
 	public void onInit(GameInitializationEvent event) {
@@ -168,13 +165,11 @@ public class BeaconWatch {
 				this.logger.info("Resource phase starting");
 
 				Map<UUID, TeamMember> members = new HashMap<>();
-				Collection<TextColor> colors = Sponge.getRegistry().getAllOf(TextColor.class);
-				Iterator<TextColor> colorsIterator = colors.iterator();
 				for (Player p : Sponge.getServer().getOnlinePlayers()) {
 					if (p.gameMode().get().equals(GameModes.SURVIVAL)) {
 						members.put(p.getUniqueId(), new TeamMember(p.getUniqueId()));
 						if (members.size() == this.playersPerTeam) {
-							TextColor teamColor = colorsIterator.next();
+							TeamColor teamColor = TeamColor.values()[this.teams.size()];
 							Team team = new Team(teamColor, members, this.calculateNewTeamBeaconLocation());
 							this.teams.put(teamColor, team);
 							this.placeBeacon(team.getBeacon());
@@ -239,7 +234,7 @@ public class BeaconWatch {
 	@Listener
 	public void onUserLogout(ClientConnectionEvent.Disconnect event) {
 			Player player = event.getTargetEntity();
-			player.offer(Keys.GAME_MODE, GameModes.SPECTATOR);	
+			player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);	
 	}
 	
 	public Location<World> calculateNewTeamBeaconLocation() {
@@ -398,7 +393,7 @@ public class BeaconWatch {
 					return false;
 				} else {
 					this.logger.info("Winner! Winner! Chicken dinner!");
-					Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "We have a winner! Congrats Team: ", team.getColor().toString()));
+					Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "We have a winner! Congrats Team: ", team.getColor().getName()));
 					return true;
 				}
 			}
@@ -468,9 +463,9 @@ public class BeaconWatch {
 								if (team.getBeacon().equals(blockSnapshot.getLocation().get())) {
 									team.setDefeated(true);
 									team.setGameMode(GameModes.SPECTATOR);
-									Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, team.getColor().toString(), " beacon has been destroyed!"));
-									this.logger.info("Beacon has been destroyed!");
-									if (isTeamWinner() == true) {
+									Sponge.getServer().getBroadcastChannel().send(Text.of(team.getColor().getName(), TextColors.GOLD, " beacon has been destroyed!"));
+									this.logger.info(team.getColor().getName().toPlain()+" beacon has been destroyed!");
+									if (isTeamWinner()) {
 										this.phase = GamePhase.ENDGAME;
 									}
 									//Check if all teams but source team have been defeated. -> Game Ends -> Source team Winner.
