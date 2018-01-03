@@ -61,6 +61,18 @@ import ninja.leaping.configurate.loader.ConfigurationLoader;
  * @author Rubbertjuh
  *
  */
+/**
+ * @author Brend
+ *
+ */
+/**
+ * @author Brend
+ *
+ */
+/**
+ * @author Brend
+ *
+ */
 @Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.1")
 public class BeaconWatch {
 
@@ -177,6 +189,11 @@ public class BeaconWatch {
 		}
 	}
 	
+	/**
+	 * Calculates new beacon coordinates with an extra check if minimum distance requirement is met and keeps track by counting attempts. Making sure it does not exceed 1000 attempts.
+	 * 
+	 * @return beaconlocation if valid beacon location meeting requirements can be found within 1000 attempts or else it returns null.
+	 */
 	public Location<World> calculateNewTeamBeaconLocation() {
 		for (int attempts = 0; attempts < 10000; attempts++) {
 			Location<World> beaconLocation = this.calculateRandomBeacon();
@@ -188,6 +205,13 @@ public class BeaconWatch {
 		return null;
 	}
 	
+	/**
+	 * Checks if a beacon is too close to other beacons according to minimum distance specified in config.
+	 * 
+	 * @param loc
+	 * @return false if Beacon does not meet the minimum distance required.
+	 * @return true if Beacon meets the minimum distance required.
+	 */
 	public boolean doesBeaconLocationKeepsMinDistance(Vector3i loc) {
 		for (Team team : this.teams.values()) {
 			if (team.getBeacon().getBlockPosition().distanceSquared(loc) < this.minDistance) {
@@ -197,8 +221,6 @@ public class BeaconWatch {
 		
 		return true;
 	}
-	
-
 
 	/**
 	 * Get all players that have survival gamemode
@@ -213,9 +235,11 @@ public class BeaconWatch {
 			}
 		}
 		return counter;
-
 	}
 
+	/**
+	 * Removes the Arena worl if it exists
+	 */
 	public void deleteArena() {
 		Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
 		if (world.isPresent()) {
@@ -227,6 +251,10 @@ public class BeaconWatch {
 		}
 	}
 
+	/**
+	 * Crates the Arena world if it does not exist yet.
+	 * Returns IOException if for some reason it can not crate one.
+	 */
 	public void createArena() {
 		try {
 			this.logger.info("Creating arena world...");
@@ -243,33 +271,35 @@ public class BeaconWatch {
 		}
 	}
 
+	/**
+	 * @return the WorldProperties of the arena world.
+	 */
 	public WorldProperties getArenaWorldProperties() {
 		return Sponge.getServer().getWorldProperties(this.arenaWorldName).get();
 	}
 
+	/**
+	 * Places a beacon on the specified Location that we get as a parameter. 
+	 * @param blockloc
+	 */
 	public void placeBeacon(Location<World> blockloc) {
 		blockloc.setBlockType(BlockTypes.BEACON, Cause.source(container).build());
 	}
 
+	/**
+	 * Calculates the Y coordinate for the beacon. Only places them on specific locations where blocktype is: Grass, Stone, Sand, Cobblestone.
+	 * @param x coordinate of calculateRandomBeacon method
+	 * @param z coordinate of calculateRandomBeacon method
+	 * @return y coordinate if valid location was found, if not, returns -1
+	 */
 	public int calculateBeaconY(int x, int z) {
-		this.logger.info("Printing debug message: - before " + "yMin: " + this.minY);
-		this.logger.info("Printing debug message: - before " + "yMax: " + this.maxY);
-		World world = Sponge.getServer().getWorld(this.arenaWorldName).get();
-
 		for (int y = this.maxY; y >= this.minY; y--) {
-			Location<World> loc = world.getLocation(x, y, z);
+			Location<World> loc = getArenaWorld().getLocation(x, y, z);
 			if (loc.getBlockType().equals(BlockTypes.AIR)) {
-				this.logger.info("Block type: " + loc.getBlockType().getName());
-				this.logger.info("Passed check 1 (air)");
 			} else if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
-				this.logger.info("Passed check 2 (solid block)");
 				if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
-					this.logger.info("Passed check 3 (Air above solid block)");
-					this.logger.info("Found a good location! " + "Coordinate Y: " + (y + 1));
 					return y + 1;
-				} else {
-					this.logger.info("Passed check 4 (if no air above solid block)");
-				}
+				} 
 			} else {
 				return -1;
 			}
@@ -283,15 +313,14 @@ public class BeaconWatch {
 	 * @return valid location of beacon, null if not found
 	 */
 	public Location<World> calculateRandomBeacon() {
-		World world = Sponge.getServer().getWorld(this.arenaWorldName).get();
 		for (int attempts = 0; attempts < 10000; attempts++) {
 			int x = this.random.nextInt(this.maxX - this.minX) + this.minX;
 			int z = this.random.nextInt(this.maxZ - this.minZ) + this.minZ;
 
 			int y = calculateBeaconY(x, z);
 			if (y != -1) {
-				this.logger.info("Final beacon destination: " + world.getLocation(x, y, z));
-				return world.getLocation(x, y, z);
+				this.logger.info("Final beacon destination: " + getArenaWorld().getLocation(x, y, z));
+				return getArenaWorld().getLocation(x, y, z);
 			} else {
 				this.logger.info("y = -1, recalculating...");
 			}
@@ -299,7 +328,6 @@ public class BeaconWatch {
 		this.logger.info("We fucked up");
 		return null;
 	}
-
 
 	/**
 	 * Get the team for the specified player's UUID
@@ -333,6 +361,9 @@ public class BeaconWatch {
 		return counter;
 	}
 	
+	/**
+	 * @return the arena world
+	 */
 	public World getArenaWorld() {
 		return Sponge.getServer().getWorld(this.arenaWorldName).get();
 	}
@@ -418,7 +449,6 @@ public class BeaconWatch {
 	
 	@Listener
 	public void onItemDrop(DropItemEvent.Pre event) {
-		// Do not drop beacons
 		event.getDroppedItems().removeIf(item -> item.getType() == ItemTypes.BEACON);
 	}
 
@@ -472,7 +502,6 @@ public class BeaconWatch {
 					for (TeamMember member : members.values()) {
 						Player teamPlayer = member.getPlayer().get();
 						teamPlayer.setLocation(team.getBeacon());
-						this.logger.info(teamPlayer + " was sent to beacon location: " + team.getBeacon());
 					}
 					members = new HashMap<>();
 				}

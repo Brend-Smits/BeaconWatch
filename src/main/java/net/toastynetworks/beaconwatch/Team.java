@@ -20,26 +20,46 @@ public class Team {
         this.beacon = beacon;
     }
 
+    /**
+     * @return color of the specified Team
+     */
     public TeamColor getColor() {
         return color;
     }
 
+    /**
+     * @return all players of a specified team
+     */
     public Map<UUID, TeamMember> getPlayers() {
         return players;
     }
 
+    /**
+     * @return location of the beacon from the specified team
+     */
     public Location<World> getBeacon() {
         return beacon;
     }
     
+    /**
+     * @return false if team is not defeated or true if team has been defeated.
+     */
     public boolean isDefeated() {
 		return defeated;
 	}
 
+	/**
+	 * Set the boolean defeated to true ot false if the team has lost or won.
+	 * @param defeated
+	 */
 	public void setDefeated(boolean defeated) {
 		this.defeated = defeated;
 	}
 	
+	/**
+	 * Set the gamemode of a player in a specific team.
+	 * @param gameMode
+	 */
 	public void setGameMode(GameMode gameMode) {
 		for (TeamMember member : players.values()) {
 			if (member.getPlayer().isPresent()) {

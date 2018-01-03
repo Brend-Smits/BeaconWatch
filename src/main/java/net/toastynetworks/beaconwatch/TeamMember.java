@@ -18,6 +18,9 @@ public class TeamMember {
         this.uuid = uuid;
     }
 
+    /**
+     * @return player of team
+     */
     public Optional<Player> getPlayer() {
         return Sponge.getServer().getPlayer(uuid);
     }
