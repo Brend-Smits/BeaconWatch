@@ -201,7 +201,6 @@ public class BeaconWatch {
 				return beaconLocation;
 			}
 		}
-		
 		return null;
 	}
 	
@@ -218,7 +217,6 @@ public class BeaconWatch {
 				return false;
 			}
 		}
-		
 		return true;
 	}
 
@@ -304,7 +302,6 @@ public class BeaconWatch {
 				return -1;
 			}
 		}
-
 		return -1;
 	}
 
@@ -357,7 +354,6 @@ public class BeaconWatch {
 				counter++;
 			}
 		}
-		
 		return counter;
 	}
 	
@@ -465,6 +461,20 @@ public class BeaconWatch {
 								trans.setValid(false);
 								source.sendMessage(Text.of(TextColors.RED, "You can't place blocks near enemies beacon in this phase."));
 							}
+						}
+					}
+				}
+			}
+		}
+		if (this.phase != GamePhase.PREGAME || this.phase != GamePhase.ENDGAME) {
+			for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+				BlockSnapshot blockSnapshot = trans.getOriginal();
+				if (blockSnapshot.getLocation().isPresent()) {
+					for (Team team : this.teams.values()) {
+						if (team.getBeacon().getX() == blockSnapshot.getLocation().get().getX() && team.getBeacon().getZ() == blockSnapshot.getLocation().get().getZ()) {
+							event.setCancelled(true);
+							trans.setValid(false);
+							source.sendMessage(Text.of(TextColors.RED, "You can't place blocks above the beacon!"));
 						}
 					}
 				}
