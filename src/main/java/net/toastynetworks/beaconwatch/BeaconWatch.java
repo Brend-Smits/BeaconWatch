@@ -61,7 +61,7 @@ import ninja.leaping.configurate.loader.ConfigurationLoader;
  * @author Rubbertjuh
  *
  */
-@Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.0")
+@Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.1")
 public class BeaconWatch {
 
 	@Inject
