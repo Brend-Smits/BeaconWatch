@@ -19,11 +19,9 @@ import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
-import org.spongepowered.api.data.DataTransactionResult;
 import org.spongepowered.api.data.Transaction;
 import org.spongepowered.api.data.key.Keys;
 import org.spongepowered.api.data.manipulator.mutable.PotionEffectData;
-import org.spongepowered.api.data.manipulator.mutable.entity.HealthData;
 import org.spongepowered.api.effect.potion.PotionEffect;
 import org.spongepowered.api.effect.potion.PotionEffectTypes;
 import org.spongepowered.api.entity.living.player.Player;
@@ -59,22 +57,7 @@ import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
 
 
-/**
- * @author Rubbertjuh
- *
- */
-/**
- * @author Brend
- *
- */
-/**
- * @author Brend
- *
- */
-/**
- * @author Brend
- *
- */
+
 @Plugin(id = "beaconwatch", name = "BeaconWatch", version = "1.1")
 public class BeaconWatch {
 
@@ -305,8 +288,9 @@ public class BeaconWatch {
 	 * @return y coordinate if valid location was found, if not, returns -1
 	 */
 	public int calculateBeaconY(int x, int z) {
+		World world = getArenaWorld();
 		for (int y = this.maxY; y >= this.minY; y--) {
-			Location<World> loc = getArenaWorld().getLocation(x, y, z);
+			Location<World> loc = world.getLocation(x, y, z);
 			if (loc.getBlockType().equals(BlockTypes.AIR)) {
 			} else if (loc.getBlockType().equals(BlockTypes.GRASS) || loc.getBlockType().equals(BlockTypes.STONE) || loc.getBlockType().equals(BlockTypes.SAND) || loc.getBlockType().equals(BlockTypes.COBBLESTONE)) {
 				if (loc.add(0, 1, 0).getBlockType().equals(BlockTypes.AIR)) {
@@ -324,14 +308,15 @@ public class BeaconWatch {
 	 * @return valid location of beacon, null if not found
 	 */
 	public Location<World> calculateRandomBeacon() {
+		World world = getArenaWorld();
 		for (int attempts = 0; attempts < 10000; attempts++) {
 			int x = this.random.nextInt(this.maxX - this.minX) + this.minX;
 			int z = this.random.nextInt(this.maxZ - this.minZ) + this.minZ;
 
 			int y = calculateBeaconY(x, z);
 			if (y != -1) {
-				this.logger.info("Final beacon destination: " + getArenaWorld().getLocation(x, y, z));
-				return getArenaWorld().getLocation(x, y, z);
+				this.logger.info("Final beacon destination: " + world.getLocation(x, y, z));
+				return world.getLocation(x, y, z);
 			} else {
 				this.logger.info("y = -1, recalculating...");
 			}
@@ -515,6 +500,7 @@ public class BeaconWatch {
 		getArenaWorldProperties().setWorldTime(0);
 		Map<UUID, TeamMember> members = new HashMap<>();
 		for (Player p : Sponge.getServer().getOnlinePlayers()) {
+			healPlayer(p);
 			if (p.gameMode().get().equals(GameModes.SURVIVAL)) {
 				members.put(p.getUniqueId(), new TeamMember(p.getUniqueId()));
 				if (members.size() == this.playersPerTeam) {
