@@ -233,7 +233,7 @@ public class BeaconWatch {
 	}
 
 	/**
-	 * Removes the Arena worl if it exists
+	 * Removes the Arena world if it exists
 	 */
 	public void deleteArena() {
 		Optional<World> world = Sponge.getServer().getWorld(this.arenaWorldName);
@@ -248,7 +248,7 @@ public class BeaconWatch {
 
 	/**
 	 * Crates the Arena world if it does not exist yet.
-	 * Returns IOException if for some reason it can not crate one.
+	 * @throws IOException if for some reason it can not crate one.
 	 */
 	public void createArena() {
 		try {
