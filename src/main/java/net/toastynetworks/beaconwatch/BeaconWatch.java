@@ -92,6 +92,9 @@ public class BeaconWatch {
 	public int maxZ;
 	public int playersPerTeam;
 	public int teamCount;
+	public String databaseURL;
+	
+	SQLStatements statements;
 	Random random = new Random();
 	GamePhase phase = GamePhase.PREGAME;
 	Map<TeamColor, Team> teams = new HashMap<>();
@@ -116,6 +119,7 @@ public class BeaconWatch {
 				this.config.getNode("MaxX").setValue(700);
 				this.config.getNode("MaxY").setValue(81);
 				this.config.getNode("MaxZ").setValue(700);
+				this.config.getNode("DatabaseURL").setValue("jdbc:mysql://localhost/databasehere?user=root&password=root");
 				this.configManager.save(this.config);
 			}
 			this.fullGameTime = this.config.getNode("FullGameTime").getLong();
@@ -132,6 +136,7 @@ public class BeaconWatch {
 			this.maxX = this.config.getNode("MaxX").getInt();
 			this.maxY = this.config.getNode("MaxY").getInt();
 			this.maxZ = this.config.getNode("MaxZ").getInt();
+			this.databaseURL = this.config.getNode("databaseURL").getString();
 			this.logger.info("Full game time is set to: " + this.fullGameTime);
 			this.logger.info("Resource phase time set to: " + this.resourceTime);
 			this.logger.info("Min amount of players required to start game is set to: " + this.minPlayersGameStart);
