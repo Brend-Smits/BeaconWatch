@@ -2,6 +2,7 @@ package net.toastynetworks.beaconwatch;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -10,6 +11,7 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import javax.inject.Inject;
+import javax.sql.DataSource;
 
 import org.slf4j.Logger;
 import org.spongepowered.api.Game;
@@ -42,6 +44,7 @@ import org.spongepowered.api.item.ItemTypes;
 import org.spongepowered.api.plugin.Plugin;
 import org.spongepowered.api.plugin.PluginContainer;
 import org.spongepowered.api.scheduler.Task;
+import org.spongepowered.api.service.sql.SqlService;
 import org.spongepowered.api.text.Text;
 import org.spongepowered.api.text.format.TextColors;
 import org.spongepowered.api.world.Location;
@@ -52,6 +55,7 @@ import org.spongepowered.api.world.storage.WorldProperties;
 import com.flowpowered.math.vector.Vector3i;
 
 import net.kaikk.mc.kaiscommons.CommonUtils;
+import net.kaikk.mc.kaiscommons.sql.SQLConnection;
 import ninja.leaping.configurate.ConfigurationNode;
 import ninja.leaping.configurate.commented.CommentedConfigurationNode;
 import ninja.leaping.configurate.loader.ConfigurationLoader;
@@ -119,7 +123,7 @@ public class BeaconWatch {
 				this.config.getNode("MaxX").setValue(700);
 				this.config.getNode("MaxY").setValue(81);
 				this.config.getNode("MaxZ").setValue(700);
-				this.config.getNode("DatabaseURL").setValue("jdbc:mysql://localhost/databasehere?user=root&password=root");
+				this.config.getNode("database").setValue("jdbc:mysql://localhost/databasehere?user=root&password=root");
 				this.configManager.save(this.config);
 			}
 			this.fullGameTime = this.config.getNode("FullGameTime").getLong();
@@ -136,7 +140,7 @@ public class BeaconWatch {
 			this.maxX = this.config.getNode("MaxX").getInt();
 			this.maxY = this.config.getNode("MaxY").getInt();
 			this.maxZ = this.config.getNode("MaxZ").getInt();
-			this.databaseURL = this.config.getNode("databaseURL").getString();
+			this.databaseURL = this.config.getNode("database").getString();
 			this.logger.info("Full game time is set to: " + this.fullGameTime);
 			this.logger.info("Resource phase time set to: " + this.resourceTime);
 			this.logger.info("Min amount of players required to start game is set to: " + this.minPlayersGameStart);
@@ -151,6 +155,25 @@ public class BeaconWatch {
 			this.logger.warn("BeaconWatch was not loaded correctly due to a config error");
 			this.logger.warn("-------------------------------------------------------------");
 			e.printStackTrace();
+		}
+		try {
+            DataSource dataSource = Sponge.getServiceManager().provide(SqlService.class).get().getDataSource(databaseURL);
+            SQLConnection connection = new SQLConnection(dataSource);
+            this.statements = new SQLStatements(connection);
+		} catch (SQLException e) {
+			e.printStackTrace();
+		}
+		try {
+			statements.createTablePlayers.executeUpdate();
+			statements.createTableGameStats.executeUpdate();
+			statements.createTablePlayerStatistics.executeUpdate();
+			statements.createTableOnlinePlayers.executeUpdate();
+			this.logger.info("All tables have been succesfully created in the Database!");
+		} catch (SQLException e) {
+			e.printStackTrace();
+			this.logger.warn("Some Tables could not be created. Check your configuration!");
+		} finally {
+			statements.connection.close();
 		}
 	}
 
