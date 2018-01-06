@@ -33,6 +33,7 @@ import org.spongepowered.api.event.block.ChangeBlockEvent;
 import org.spongepowered.api.event.cause.Cause;
 import org.spongepowered.api.event.cause.entity.damage.source.EntityDamageSource;
 import org.spongepowered.api.event.entity.AttackEntityEvent;
+import org.spongepowered.api.event.entity.DestructEntityEvent;
 import org.spongepowered.api.event.entity.living.humanoid.player.RespawnPlayerEvent;
 import org.spongepowered.api.event.filter.cause.First;
 import org.spongepowered.api.event.game.state.GameInitializationEvent;
@@ -80,6 +81,7 @@ public class BeaconWatch {
 	private ConfigurationLoader<CommentedConfigurationNode> configManager;
 	@Inject
 	@ConfigDir(sharedRoot = false)
+	//TODO: clean up the variables like we did in TeamMember class
 	private Path configDir;
 	private ConfigurationNode config;
 	public long fullGameTime;
@@ -102,9 +104,10 @@ public class BeaconWatch {
 	Random random = new Random();
 	GamePhase phase = GamePhase.PREGAME;
 	Map<TeamColor, Team> teams = new HashMap<>();
-	//Substract player dc time from login time  = playtime
+	Map<UUID, TeamMember> teamMembers = new HashMap<>();
+	Map<UUID, Team> playersToTeam = new HashMap<>();
 	Map<UUID, Long> loginTimes = new HashMap<>();
-	Map<UUID, Long> logoutTimes = new HashMap<>();
+	int gameid = 0;
 	
 	@Listener
 	public void onInit(GameInitializationEvent event) {
@@ -169,9 +172,11 @@ public class BeaconWatch {
 		}
 		try {
 			statements.createTablePlayers.executeUpdate();
-			statements.createTableGameStats.executeUpdate();
+			statements.createTableGame.executeUpdate();
 			statements.createTablePlayerStatistics.executeUpdate();
 			statements.createTableOnlinePlayers.executeUpdate();
+			//In case of crash or unexpected shutdown, we clear all contents of the table
+			statements.truncateOnlinePlayer.executeUpdate();
 			this.logger.info("All tables have been succesfully created in the Database!");
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -179,6 +184,7 @@ public class BeaconWatch {
 		} finally {
 			statements.connection.close();
 		}
+		
 	}
 
 	@Listener
@@ -209,6 +215,7 @@ public class BeaconWatch {
 		loginTimes.put(player.getUniqueId(), System.currentTimeMillis());
 		try {
 			statements.insertPlayer.executeUpdate(player.getUniqueId().toString(), player.getName());
+			statements.insertOnlinePlayer.executeUpdate(player.getUniqueId().toString());
 			
 		} catch (SQLException e) {
 			e.printStackTrace();
@@ -223,6 +230,7 @@ public class BeaconWatch {
 		long playtime = (System.currentTimeMillis() - loginTimes.get(player.getUniqueId())) / 1000;
 		try {
 			statements.updatePlayer.executeUpdate(playtime, player.getUniqueId().toString());
+			statements.deleteOnlinePlayer.executeUpdate(player.getUniqueId().toString());
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
@@ -386,14 +394,7 @@ public class BeaconWatch {
 	 * @return the Team for the player, or null if not found
 	 */
 	public Team getTeam(UUID uuid) {
-		//Loop through all teams and get values
-		for (Team team : this.teams.values()) {
-			//Check if specified player is in a team
-			if (team.getPlayers().containsKey(uuid)) {
-				return team;
-			}
-		}
-		return null;
+		return this.playersToTeam.get(uuid);
 	}
 	
 	/**
@@ -428,6 +429,21 @@ public class BeaconWatch {
 	}
 
 	@Listener
+	public void onDeathEvent(DestructEntityEvent.Death event, @First Player killer) {
+		if (event.getTargetEntity() instanceof Player) {
+			Player killedPlayer = (Player) event.getTargetEntity();
+			TeamMember killerMember = this.teamMembers.get(killer.getUniqueId());
+			if (killerMember != null) {
+				killerMember.incrementKills();
+			}
+			TeamMember killedMember = this.teamMembers.get(killedPlayer.getUniqueId());
+			if (killedMember != null) {
+				killedMember.incrementDeaths();
+			}
+		}
+	}
+	
+	@Listener
 	public void onAttackEntity(AttackEntityEvent event, @First EntityDamageSource damageSource) {
 		if (damageSource.getSource() instanceof Player) {
 			Player source = (Player) damageSource.getSource();
@@ -452,43 +468,56 @@ public class BeaconWatch {
 
 	@Listener
 	public void onBlockBreak(ChangeBlockEvent.Break event, @First Player source) {
-		if (this.phase == GamePhase.RESOURCE) {
-			for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
-				BlockSnapshot blockSnapshot = trans.getOriginal();
-				BlockType blockType = blockSnapshot.getState().getType();
-				if (blockType == BlockTypes.BEACON) {
-					event.setCancelled(true);
-					trans.setValid(false);
-					source.sendMessage(Text.of(TextColors.RED, "Stop trying to destroy your own beacon.."));
-				}
+		if (this.phase == GamePhase.RESOURCE || this.phase == GamePhase.PVP) {
+			TeamMember member = this.teamMembers.get(source.getUniqueId());
+			if (member != null) {
+				member.incrementBlocksBroken();
 			}
-		} else if (this.phase == GamePhase.PVP) {
-			for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
-				BlockSnapshot blockSnapshot = trans.getOriginal();
-				if (blockSnapshot.getLocation().isPresent()) {
+			
+			if (this.phase == GamePhase.RESOURCE) {
+				for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+					BlockSnapshot blockSnapshot = trans.getOriginal();
 					BlockType blockType = blockSnapshot.getState().getType();
 					if (blockType == BlockTypes.BEACON) {
-						//Find out if the beacon that source is breaking is from their own team
-						Team sourceTeam = this.getTeam(source.getUniqueId());
-						if (sourceTeam.getBeacon().equals(blockSnapshot.getLocation().get())) {
-							event.setCancelled(true);
-							trans.setValid(false);
-							source.sendMessage(Text.of(TextColors.RED, "Stop trying to destroy your own beacon.."));
-						} else {
-							for (Team team : this.teams.values()) {
-								if (team.getBeacon().equals(blockSnapshot.getLocation().get())) {
-									team.setDefeated(true);
-									team.setGameMode(GameModes.SPECTATOR);
-									Sponge.getServer().getBroadcastChannel().send(Text.of(team.getColor().getName(), TextColors.GOLD, " beacon has been destroyed!"));
-									this.logger.info(team.getColor().getName().toPlain()+" beacon has been destroyed!");
-									if (getAliveTeamCount() <= 1) {
-										this.phase = GamePhase.ENDGAME;
-										GamePhaseChangeEvent changeEvent = new GamePhaseChangeEvent.EndGame(sourceTeam, Cause.source(this).build());
-										Sponge.getEventManager().post(changeEvent);
+						event.setCancelled(true);
+						trans.setValid(false);
+						source.sendMessage(Text.of(TextColors.RED, "Stop trying to destroy your own beacon.."));
+					}
+				}
+			} else {
+				for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+					BlockSnapshot blockSnapshot = trans.getOriginal();
+					if (blockSnapshot.getLocation().isPresent()) {
+						BlockType blockType = blockSnapshot.getState().getType();
+						if (blockType == BlockTypes.BEACON) {
+							//Find out if the beacon that source is breaking is from their own team
+							Team sourceTeam = this.getTeam(source.getUniqueId());
+							if (sourceTeam.getBeacon().equals(blockSnapshot.getLocation().get())) {
+								event.setCancelled(true);
+								trans.setValid(false);
+								source.sendMessage(Text.of(TextColors.RED, "Stop trying to destroy your own beacon.."));
+							} else {
+								for (Team team : this.teams.values()) {
+									if (team.getBeacon().equals(blockSnapshot.getLocation().get())) {
+										team.setDefeated(true);
+										team.setGameMode(GameModes.SPECTATOR);
+										Sponge.getServer().getBroadcastChannel().send(Text.of(team.getColor().getName(), TextColors.GOLD, " beacon has been destroyed!"));
+										this.logger.info(team.getColor().getName().toPlain()+" beacon has been destroyed!");
+										
+										TeamMember beaconDestroyer = this.teamMembers.get(source.getUniqueId());
+										if (beaconDestroyer != null) {
+											beaconDestroyer.incrementBrokenBeacons();
+										}
+										
+										if (getAliveTeamCount() <= 1) {
+											this.phase = GamePhase.ENDGAME;
+											GamePhaseChangeEvent changeEvent = new GamePhaseChangeEvent.EndGame(sourceTeam, Cause.source(this).build());
+											Sponge.getEventManager().post(changeEvent);
+										}
 									}
 								}
+								
 							}
-							
 						}
 					}
 				}
@@ -503,23 +532,29 @@ public class BeaconWatch {
 
 	@Listener
 	public void onBlockPlace(ChangeBlockEvent.Place event, @First Player source) {
-		if (this.phase == GamePhase.RESOURCE) {
-			for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
-				BlockSnapshot blockSnapshot = trans.getOriginal();
-				if (blockSnapshot.getLocation().isPresent()) {
-					for (Team team : this.teams.values()) {
-						if (!team.getPlayers().containsKey(source.getUniqueId())) {
-							if (source.getLocation().getPosition().distanceSquared(team.getBeacon().getPosition()) < this.resourceProtectionRadius) {							
-								event.setCancelled(true);
-								trans.setValid(false);
-								source.sendMessage(Text.of(TextColors.RED, "You can't place blocks near enemies beacon in this phase."));
+		if (this.phase == GamePhase.RESOURCE || this.phase == GamePhase.PVP) {
+			TeamMember member = this.teamMembers.get(source.getUniqueId());
+			if (member != null) {
+				member.incrementBlocksPlaced();
+			}
+			
+			if (this.phase == GamePhase.RESOURCE) {
+				for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
+					BlockSnapshot blockSnapshot = trans.getOriginal();
+					if (blockSnapshot.getLocation().isPresent()) {
+						for (Team team : this.teams.values()) {
+							if (!team.getPlayers().containsKey(source.getUniqueId())) {
+								if (source.getLocation().getPosition().distanceSquared(team.getBeacon().getPosition()) < this.resourceProtectionRadius) {							
+									event.setCancelled(true);
+									trans.setValid(false);
+									source.sendMessage(Text.of(TextColors.RED, "You can't place blocks near enemies beacon in this phase."));
+								}
 							}
 						}
 					}
 				}
 			}
-		}
-		if (this.phase != GamePhase.PREGAME || this.phase != GamePhase.ENDGAME) {
+
 			for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
 				BlockSnapshot blockSnapshot = trans.getOriginal();
 				if (blockSnapshot.getLocation().isPresent()) {
@@ -548,29 +583,55 @@ public class BeaconWatch {
 	
 	@Listener
 	public void onResourcePhase(GamePhaseChangeEvent.Resource event) {
+		try {
+			this.gameid = statements.insertGame.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
+		}
+		
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "The Game has started!"));
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "Phase 1: Gather resources to defend your beacon."));
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.RED, "Phase 1: Ends in: " + CommonUtils.timeToString((int)(this.resourceTime / 1000))));
 		getArenaWorldProperties().setWorldTime(0);
 		Map<UUID, TeamMember> members = new HashMap<>();
-		for (Player p : Sponge.getServer().getOnlinePlayers()) {
-			healPlayer(p);
-			if (p.gameMode().get().equals(GameModes.SURVIVAL)) {
-				members.put(p.getUniqueId(), new TeamMember(p.getUniqueId()));
-				if (members.size() == this.playersPerTeam) {
-					TeamColor teamColor = TeamColor.values()[this.teams.size()];
-					Team team = new Team(teamColor, members, this.calculateNewTeamBeaconLocation());
-					this.teams.put(teamColor, team);
-					this.placeBeacon(team.getBeacon());
-					this.logger.info("New team: " + team.toString());
-					for (TeamMember member : members.values()) {
-						Player teamPlayer = member.getPlayer().get();
-						teamPlayer.setLocation(team.getBeacon());
+		try {
+			for (Player p : Sponge.getServer().getOnlinePlayers()) {
+				healPlayer(p);
+				if (p.gameMode().get().equals(GameModes.SURVIVAL)) {
+					members.put(p.getUniqueId(), new TeamMember(p.getUniqueId()));
+					//Using addBatch instead of executeUpdate to stack up the players that we want to insert. This will improve performance.
+					statements.insertPlayerStatistics.addBatch(p.getUniqueId().toString(), this.gameid, this.teams.size());
+					
+					if (members.size() == this.playersPerTeam) {
+						// We get the teamcolor based on how many teams there are already on the teams map
+						// So when there isn't any team on the teams map, we get a size of 0, and we use that as the
+						// index of the TeamColor.values() array that contains all the TeamColors, and then we add the team to the map, so the map size increases to 1
+						// Next time we have to add another team, the teams map size is 1, so we get the second element of the TeamColor.values() array... and so on.
+						TeamColor teamColor = TeamColor.values()[this.teams.size()];
+						Team team = new Team(teamColor, members, this.calculateNewTeamBeaconLocation());
+						this.teams.put(teamColor, team);
+						this.teamMembers.putAll(members);
+						this.placeBeacon(team.getBeacon());
+						this.logger.info("New team: " + team.toString());
+						for (TeamMember member : members.values()) {
+							Player teamPlayer = member.getPlayer().get();
+							teamPlayer.setLocation(team.getBeacon());
+							this.playersToTeam.put(member.getPlayerId(), team);
+						}
+						members = new HashMap<>();
 					}
-					members = new HashMap<>();
 				}
 			}
+			//This will actually insert all the players that were queued up from before.
+			statements.insertPlayerStatistics.executeBatch();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
 		}
+		
 		Task.builder().execute(() -> {
 			this.phase = GamePhase.PVP;
 			GamePhaseChangeEvent changeEvent2 = new GamePhaseChangeEvent.PvP(Cause.source(this).build());
@@ -615,8 +676,25 @@ public class BeaconWatch {
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "Team: ", event.getWinningTeam().getColor().getName(), " is victorious!" ));
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "Phase 3: Go home and get drunk, celebrate your victory or drink away your loss!"));
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.RED, "Phase 3: Server is resetting in 30 seconds."));
+		try {
+			for (TeamMember member : this.teamMembers.values()) {
+				statements.updatePlayerStatistics.addBatch(member.getBrokenBeacons(), member.getKills(), member.getDeaths(), member.getBlocksBroken(), member.getBlocksPlaced(), this.gameid, member.getPlayerId());
+			}
+			statements.updatePlayerStatistics.executeBatch();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
+		}
 		Task.builder().execute(task ->{
 			Sponge.getServer().shutdown(Text.of(TextColors.RED,"BeaconWatch is restarting, join back in 30 seconds!"));
 		}).delay(30, TimeUnit.SECONDS).submit(this);
+		try {
+			statements.updateGame.executeUpdate();
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
+		}
 	}
 }
