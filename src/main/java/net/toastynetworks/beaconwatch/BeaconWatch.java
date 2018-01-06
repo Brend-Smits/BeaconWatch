@@ -102,9 +102,13 @@ public class BeaconWatch {
 	Random random = new Random();
 	GamePhase phase = GamePhase.PREGAME;
 	Map<TeamColor, Team> teams = new HashMap<>();
-
+	//Substract player dc time from login time  = playtime
+	Map<UUID, Long> loginTimes = new HashMap<>();
+	Map<UUID, Long> logoutTimes = new HashMap<>();
+	
 	@Listener
 	public void onInit(GameInitializationEvent event) {
+		
 		instance = this;
 		try {
 			this.config = this.configManager.load();
@@ -178,7 +182,7 @@ public class BeaconWatch {
 	}
 
 	@Listener
-	public void userLogin(ClientConnectionEvent.Join event) {
+	public void onUserLogin(ClientConnectionEvent.Join event) {
 		Player player = event.getTargetEntity();
 		if (this.phase == GamePhase.PREGAME) {
 			Location<World> spawnLocation = Sponge.getServer().getWorld(Sponge.getServer().getDefaultWorldName()).get().getSpawnLocation();
@@ -201,9 +205,24 @@ public class BeaconWatch {
 				player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
 			}
 		}
+		//Get Login time and put it in loginTimes map
+		loginTimes.put(player.getUniqueId(), System.currentTimeMillis());
 		try {
 			statements.insertPlayer.executeUpdate(player.getUniqueId().toString(), player.getName());
 			
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
+		}
+	}
+	
+	@Listener
+	public void onUserDisconnect(ClientConnectionEvent.Disconnect event) {
+		Player player = event.getTargetEntity();
+		long playtime = (System.currentTimeMillis() - loginTimes.get(player.getUniqueId())) / 1000;
+		try {
+			statements.updatePlayer.executeUpdate(playtime, player.getUniqueId().toString());
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {
