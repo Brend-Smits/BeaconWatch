@@ -187,6 +187,16 @@ public class BeaconWatch {
 			healPlayer(player);
 			this.logger.info("Location of spawn is set to: " + spawnLocation);
 			player.getInventory().clear();
+			try {
+				String uuid = player.getUniqueId().toString();
+				String name = player.getName().toString();
+				statements.insertPlayer.executeUpdate(uuid, name);
+				
+			} catch (SQLException e) {
+				e.printStackTrace();
+			} finally {
+				statements.connection.close();
+			}
 			if (getSurvivalPlayerCount() >= this.minPlayersGameStart) {
 				this.phase = GamePhase.RESOURCE;
 				healPlayer(player);
