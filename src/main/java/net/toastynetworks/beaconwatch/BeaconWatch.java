@@ -19,6 +19,7 @@ import org.spongepowered.api.Sponge;
 import org.spongepowered.api.block.BlockSnapshot;
 import org.spongepowered.api.block.BlockType;
 import org.spongepowered.api.block.BlockTypes;
+import org.spongepowered.api.command.spec.CommandSpec;
 import org.spongepowered.api.config.ConfigDir;
 import org.spongepowered.api.config.DefaultConfig;
 import org.spongepowered.api.data.Transaction;
@@ -81,24 +82,11 @@ public class BeaconWatch {
 	private ConfigurationLoader<CommentedConfigurationNode> configManager;
 	@Inject
 	@ConfigDir(sharedRoot = false)
-	//TODO: clean up the variables like we did in TeamMember class
 	private Path configDir;
 	private ConfigurationNode config;
-	public long fullGameTime;
-	public long resourceTime;
-	public int minPlayersGameStart;
-	public int resourceProtectionRadius;
-	public int minDistance;
-	public String arenaWorldName;
-	public int minX;
-	public int minY;
-	public int minZ;
-	public int maxX;
-	public int maxY;
-	public int maxZ;
-	public int playersPerTeam;
-	public int teamCount;
-	public String databaseURL;
+	public long fullGameTime, resourceTime;
+	public String arenaWorldName, databaseURL;
+	public int minX, minY, minZ, maxX, maxY, maxZ, playersPerTeam, teamCount, minDistance, resourceProtectionRadius, minPlayersGameStart;
 	
 	SQLStatements statements;
 	Random random = new Random();
@@ -111,7 +99,6 @@ public class BeaconWatch {
 	
 	@Listener
 	public void onInit(GameInitializationEvent event) {
-		
 		instance = this;
 		try {
 			this.config = this.configManager.load();
@@ -185,6 +172,11 @@ public class BeaconWatch {
 			statements.connection.close();
 		}
 		
+        CommandSpec playerstats = CommandSpec.builder()
+                .description(Text.of("Show statistics for player"))
+                .executor(new PlayerStatsCommand(this))
+                .build();
+        game.getCommandManager().register(this, playerstats, "playerstats", "pstats", "pstat");
 	}
 
 	@Listener
@@ -397,6 +389,10 @@ public class BeaconWatch {
 		return this.playersToTeam.get(uuid);
 	}
 	
+	public Team getTeam(TeamColor color) {
+		return this.teams.get(color);
+	}
+	
 	/**
 	 *  
 	 * @return the amount of undefeated teams
@@ -469,10 +465,6 @@ public class BeaconWatch {
 	@Listener
 	public void onBlockBreak(ChangeBlockEvent.Break event, @First Player source) {
 		if (this.phase == GamePhase.RESOURCE || this.phase == GamePhase.PVP) {
-			TeamMember member = this.teamMembers.get(source.getUniqueId());
-			if (member != null) {
-				member.incrementBlocksBroken();
-			}
 			
 			if (this.phase == GamePhase.RESOURCE) {
 				for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
@@ -516,15 +508,21 @@ public class BeaconWatch {
 										}
 									}
 								}
-								
 							}
 						}
 					}
 				}
 			}
+			
+			if (!event.isCancelled()) {
+				TeamMember member = this.teamMembers.get(source.getUniqueId());
+				if (member != null) {
+					member.incrementBlocksBroken();
+				}
+			}
 		}
 	}
-	
+	//TODO: Fix beacon drop
 	@Listener
 	public void onItemDrop(DropItemEvent.Pre event) {
 		event.getDroppedItems().removeIf(item -> item.getType() == ItemTypes.BEACON);
@@ -533,11 +531,6 @@ public class BeaconWatch {
 	@Listener
 	public void onBlockPlace(ChangeBlockEvent.Place event, @First Player source) {
 		if (this.phase == GamePhase.RESOURCE || this.phase == GamePhase.PVP) {
-			TeamMember member = this.teamMembers.get(source.getUniqueId());
-			if (member != null) {
-				member.incrementBlocksPlaced();
-			}
-			
 			if (this.phase == GamePhase.RESOURCE) {
 				for (Transaction<BlockSnapshot> trans : event.getTransactions()) {
 					BlockSnapshot blockSnapshot = trans.getOriginal();
@@ -559,12 +552,20 @@ public class BeaconWatch {
 				BlockSnapshot blockSnapshot = trans.getOriginal();
 				if (blockSnapshot.getLocation().isPresent()) {
 					for (Team team : this.teams.values()) {
-						if (team.getBeacon().getX() == blockSnapshot.getLocation().get().getX() && team.getBeacon().getZ() == blockSnapshot.getLocation().get().getZ()) {
+						Location<World> blockLoc = blockSnapshot.getLocation().get();
+						if (team.getBeacon().getBlockX() == blockLoc.getBlockX() && team.getBeacon().getBlockZ() == blockLoc.getBlockZ() && team.getBeacon().getBlockY() < blockLoc.getBlockY()) {
 							event.setCancelled(true);
 							trans.setValid(false);
 							source.sendMessage(Text.of(TextColors.RED, "You can't place blocks above the beacon!"));
 						}
 					}
+				}
+			}
+			
+			if (!event.isCancelled()) {
+				TeamMember member = this.teamMembers.get(source.getUniqueId());
+				if (member != null) {
+					member.incrementBlocksPlaced();
 				}
 			}
 		}
@@ -597,6 +598,7 @@ public class BeaconWatch {
 		getArenaWorldProperties().setWorldTime(0);
 		Map<UUID, TeamMember> members = new HashMap<>();
 		try {
+			//Loop through getOnlinePlayers Collection (list)
 			for (Player p : Sponge.getServer().getOnlinePlayers()) {
 				healPlayer(p);
 				if (p.gameMode().get().equals(GameModes.SURVIVAL)) {
@@ -678,7 +680,7 @@ public class BeaconWatch {
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.RED, "Phase 3: Server is resetting in 30 seconds."));
 		try {
 			for (TeamMember member : this.teamMembers.values()) {
-				statements.updatePlayerStatistics.addBatch(member.getBrokenBeacons(), member.getKills(), member.getDeaths(), member.getBlocksBroken(), member.getBlocksPlaced(), this.gameid, member.getPlayerId());
+				statements.updatePlayerStatistics.addBatch(member.getBrokenBeacons(), member.getKills(), member.getDeaths(), member.getBlocksBroken(), member.getBlocksPlaced(), this.gameid, member.getPlayerId().toString());
 			}
 			statements.updatePlayerStatistics.executeBatch();
 		} catch (SQLException e) {
@@ -690,7 +692,7 @@ public class BeaconWatch {
 			Sponge.getServer().shutdown(Text.of(TextColors.RED,"BeaconWatch is restarting, join back in 30 seconds!"));
 		}).delay(30, TimeUnit.SECONDS).submit(this);
 		try {
-			statements.updateGame.executeUpdate();
+			statements.updateGame.executeUpdate(event.getWinningTeam().getColor().ordinal(), this.gameid);
 		} catch (SQLException e) {
 			e.printStackTrace();
 		} finally {

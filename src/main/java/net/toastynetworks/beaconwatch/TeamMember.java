@@ -40,6 +40,14 @@ public class TeamMember {
 	public void incrementDeaths() {
 		this.deaths++;
 	}
+	
+	/**
+	 * Method overloading
+	 * @param deaths
+	 */
+	public void incrementDeaths(int deaths) {
+		this.deaths += deaths;
+	}
 
 	public int getBlocksPlaced() {
 		return blocksPlaced;
