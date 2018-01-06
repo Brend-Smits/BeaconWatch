@@ -179,24 +179,14 @@ public class BeaconWatch {
 
 	@Listener
 	public void userLogin(ClientConnectionEvent.Join event) {
+		Player player = event.getTargetEntity();
 		if (this.phase == GamePhase.PREGAME) {
 			Location<World> spawnLocation = Sponge.getServer().getWorld(Sponge.getServer().getDefaultWorldName()).get().getSpawnLocation();
-			Player player = event.getTargetEntity();
 			player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
 			player.setLocation(spawnLocation);
 			healPlayer(player);
 			this.logger.info("Location of spawn is set to: " + spawnLocation);
 			player.getInventory().clear();
-			try {
-				String uuid = player.getUniqueId().toString();
-				String name = player.getName().toString();
-				statements.insertPlayer.executeUpdate(uuid, name);
-				
-			} catch (SQLException e) {
-				e.printStackTrace();
-			} finally {
-				statements.connection.close();
-			}
 			if (getSurvivalPlayerCount() >= this.minPlayersGameStart) {
 				this.phase = GamePhase.RESOURCE;
 				healPlayer(player);
@@ -204,13 +194,20 @@ public class BeaconWatch {
 				Sponge.getEventManager().post(changeEvent);
 			}
 		} else {
-			Player player = event.getTargetEntity();
 			Team team = this.getTeam(player.getUniqueId());
 			if (team == null || team.isDefeated()) {
 				player.offer(Keys.GAME_MODE, GameModes.SPECTATOR);
 			} else {
 				player.offer(Keys.GAME_MODE, GameModes.SURVIVAL);
 			}
+		}
+		try {
+			statements.insertPlayer.executeUpdate(player.getUniqueId().toString(), player.getName());
+			
+		} catch (SQLException e) {
+			e.printStackTrace();
+		} finally {
+			statements.connection.close();
 		}
 	}
 	

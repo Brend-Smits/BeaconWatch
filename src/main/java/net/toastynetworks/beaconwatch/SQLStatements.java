@@ -15,11 +15,10 @@ public class SQLStatements {
 	public SQLConnection connection;
 	public SQLStatements(SQLConnection connection) {
 		this.connection = connection;
-		this.createTablePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS `Players`( `UUID` VARCHAR(255) NOT NULL , `Name` VARCHAR(255) NOT NULL , `First login` TIME NOT NULL , `Last login` TIME NOT NULL , `Timeplayed` INT NOT NULL , PRIMARY KEY (`UUID`))");
-		this.createTableGameStats = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS `GameStats`( `GameID` INT NOT NULL , `Time game starts` TIME NOT NULL , `Time game ends` TIME NOT NULL , `Winning team` VARCHAR(255) NOT NULL , PRIMARY KEY (`GameID`))");
-		this.createTablePlayerStatistics = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS `PlayerStatistics`( `GameID` INT NOT NULL , `UUID` VARCHAR(255) NOT NULL , `Beacons Destroyed` INT NOT NULL , `Kills` INT NOT NULL , `Deaths` INT NOT NULL , `Blocks Broken` INT NOT NULL , `Blocks Placed` INT NOT NULL , `Team` VARCHAR(255) NOT NULL , PRIMARY KEY (`GameID`, `UUID`))");
-		this.createTableOnlinePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS `OnlinePlayers`( `GameID` INT NOT NULL , `UUID` VARCHAR(255) NOT NULL , `Beacon destroyed` INT NOT NULL , `Team` VARCHAR(255) NOT NULL , PRIMARY KEY (`GameID`))");
-		this.insertPlayer = connection.prepareCachedStatement("INSERT IGNORE Players(UUID, Name) VALUE(?)", Types.VARCHAR);
+		this.createTablePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS players (uuid CHAR(36) NOT NULL, name CHAR(16) NOT NULL, first_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, timeplayed INT NOT NULL DEFAULT 0, PRIMARY KEY (uuid))");
+		this.createTableGameStats = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS gamestats (gameid INT NOT NULL, time_game_starts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, time_game_ends TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, winning_team TINYINT(3) UNSIGNED NOT NULL, PRIMARY KEY (gameid))");
+		this.createTablePlayerStatistics = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS playerstatistics (gameid INT NOT NULL, uuid CHAR(36) NOT NULL, beacons_destroyed INT NOT NULL, kills INT NOT NULL, deaths INT NOT NULL, blocks_broken INT NOT NULL, blocks_placed INT NOT NULL, team TINYINT(3) UNSIGNED NOT NULL, PRIMARY KEY (gameid, uuid))");
+		this.createTableOnlinePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS onlineplayers (gameid INT NOT NULL, uuid CHAR(36) NOT NULL, beacons_destroyed INT NOT NULL, team TINYINT(3) UNSIGNED NOT NULL, PRIMARY KEY (gameid))");
+		this.insertPlayer = connection.prepareCachedStatement("INSERT IGNORE players (uuid, name) VALUES (?, ?)", Types.CHAR, Types.CHAR);
 	}
-
 }
