@@ -26,7 +26,7 @@ public class PlayerStatsCommand implements CommandExecutor{
 		if (src instanceof Player) {
 			Player p = (Player) src;
 			try {
-				ResultSet rs = instance.statements.selectPlayerStats.executeQuery(p.getUniqueId().toString());
+				ResultSet rs = instance.getStatements().selectPlayerStats.executeQuery(p.getUniqueId().toString());
 				if (rs.next()) {
 					int timePlayed = rs.getInt(1);
 					Timestamp firstLogin = rs.getTimestamp(2);
@@ -41,7 +41,7 @@ public class PlayerStatsCommand implements CommandExecutor{
 			} catch (SQLException e) {
 				e.printStackTrace();
 			} finally {
-				instance.statements.connection.close();
+				instance.getStatements().connection.close();
 			}
 		}
 		return CommandResult.success();

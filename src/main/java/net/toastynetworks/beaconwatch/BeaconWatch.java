@@ -3,7 +3,9 @@ package net.toastynetworks.beaconwatch;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Random;
@@ -55,6 +57,7 @@ import org.spongepowered.api.world.WorldArchetypes;
 import org.spongepowered.api.world.storage.WorldProperties;
 
 import com.flowpowered.math.vector.Vector3i;
+import com.google.common.reflect.TypeToken;
 
 import net.kaikk.mc.kaiscommons.CommonUtils;
 import net.kaikk.mc.kaiscommons.sql.SQLConnection;
@@ -84,21 +87,22 @@ public class BeaconWatch {
 	@ConfigDir(sharedRoot = false)
 	private Path configDir;
 	private ConfigurationNode config;
-	public long fullGameTime, resourceTime;
-	public String arenaWorldName, databaseURL;
-	public int minX, minY, minZ, maxX, maxY, maxZ, playersPerTeam, teamCount, minDistance, resourceProtectionRadius, minPlayersGameStart;
+	private long fullGameTime, resourceTime;
+	private String arenaWorldName, databaseURL;
+	private int minX, minY, minZ, maxX, maxY, maxZ, playersPerTeam, minDistance, resourceProtectionRadius, minPlayersGameStart;
+	private List<String> commandsOnResourcePhase, commandsOnPvPPhase, commandsOnEndGamePhase;
 	
-	SQLStatements statements;
-	Random random = new Random();
-	GamePhase phase = GamePhase.PREGAME;
-	Map<TeamColor, Team> teams = new HashMap<>();
-	Map<UUID, TeamMember> teamMembers = new HashMap<>();
-	Map<UUID, Team> playersToTeam = new HashMap<>();
-	Map<UUID, Long> loginTimes = new HashMap<>();
-	int gameid = 0;
+	private SQLStatements statements;
+	private Random random = new Random();
+	private GamePhase phase = GamePhase.PREGAME;
+	private Map<TeamColor, Team> teams = new HashMap<>();
+	private Map<UUID, TeamMember> teamMembers = new HashMap<>();
+	private Map<UUID, Team> playersToTeam = new HashMap<>();
+	private Map<UUID, Long> loginTimes = new HashMap<>();
+	private int gameid = 0;
 	
 	@Listener
-	public void onInit(GameInitializationEvent event) {
+	public void onGameInitialization(GameInitializationEvent event) {
 		instance = this;
 		try {
 			this.config = this.configManager.load();
@@ -106,7 +110,6 @@ public class BeaconWatch {
 				this.config.getNode("FullGameTime").setValue(1200000);
 				this.config.getNode("ResourceTime").setValue(3200);
 				this.config.getNode("MinPlayersGameStart").setValue(2);
-				this.config.getNode("TeamCount").setValue(2);
 				this.config.getNode("PlayersPerTeam").setValue(1);
 				this.config.getNode("MinDistance").setValue(100);
 				this.config.getNode("ResourceProtectionRadius").setValue(75);
@@ -118,6 +121,19 @@ public class BeaconWatch {
 				this.config.getNode("MaxY").setValue(81);
 				this.config.getNode("MaxZ").setValue(700);
 				this.config.getNode("database").setValue("jdbc:mysql://localhost/databasehere?user=root&password=root");
+				
+				List<String> defaultCommandsOnResourcePhase = new ArrayList<>();
+				defaultCommandsOnResourcePhase.add("say This command will run at resource phase");
+				defaultCommandsOnResourcePhase.add("say Example command");
+				this.config.getNode("CommandsOnResourcePhase").setValue(defaultCommandsOnResourcePhase);
+				List<String> defaultCommandsOnPvPPhase = new ArrayList<>();
+				defaultCommandsOnPvPPhase.add("say This command will run at pvp phase");
+				defaultCommandsOnPvPPhase.add("say Example command");
+				this.config.getNode("CommandsOnPvPPhase").setValue(defaultCommandsOnPvPPhase);
+				List<String> defaultCommandsOnEndGamePhase = new ArrayList<>();
+				defaultCommandsOnEndGamePhase.add("say This command will run at EndGame phase");
+				defaultCommandsOnEndGamePhase.add("say Example command");
+				this.config.getNode("CommandsOnEndGamePhase").setValue(defaultCommandsOnEndGamePhase);
 				this.configManager.save(this.config);
 			}
 			this.fullGameTime = this.config.getNode("FullGameTime").getLong();
@@ -125,7 +141,6 @@ public class BeaconWatch {
 			this.minPlayersGameStart = this.config.getNode("MinPlayersGameStart").getInt();
 			this.resourceProtectionRadius = (int) Math.pow(this.config.getNode("ResourceProtectionRadius").getInt(), 2);
 			this.arenaWorldName = this.config.getNode("ArenaWorldName").getString();
-			this.teamCount = this.config.getNode("TeamCount").getInt();
 			this.playersPerTeam = this.config.getNode("PlayersPerTeam").getInt();
 			this.minDistance = this.config.getNode("MinDistance").getInt();
 			this.minX = this.config.getNode("MinX").getInt();
@@ -135,6 +150,16 @@ public class BeaconWatch {
 			this.maxY = this.config.getNode("MaxY").getInt();
 			this.maxZ = this.config.getNode("MaxZ").getInt();
 			this.databaseURL = this.config.getNode("database").getString();
+			this.commandsOnResourcePhase = this.config.getNode("CommandsOnResourcePhase").getList(TypeToken.of(String.class));
+			this.commandsOnPvPPhase = this.config.getNode("CommandsOnPvPPhase").getList(TypeToken.of(String.class));
+			this.commandsOnEndGamePhase = this.config.getNode("CommandsOnEndGamePhase").getList(TypeToken.of(String.class));
+			
+			//If a list CONTAINS the command "stop", we check the index, and remove it from the list.
+			if (commandsOnResourcePhase.contains("stop")) {
+				int indexOfStop = commandsOnResourcePhase.indexOf("stop");
+				commandsOnResourcePhase.remove(indexOfStop);
+			}
+			
 			this.logger.info("Full game time is set to: " + this.fullGameTime);
 			this.logger.info("Resource phase time set to: " + this.resourceTime);
 			this.logger.info("Min amount of players required to start game is set to: " + this.minPlayersGameStart);
@@ -143,7 +168,7 @@ public class BeaconWatch {
 			this.logger.info("------------------------------------");
 			this.logger.info("BeaconWatch was successfully loaded!");
 			this.logger.info("------------------------------------");
-		} catch (IOException e) {
+		} catch (Exception e) {
 			this.logger.warn("Error loading and or creating default configuration!");
 			this.logger.warn("-------------------------------------------------------------");
 			this.logger.warn("BeaconWatch was not loaded correctly due to a config error");
@@ -234,7 +259,7 @@ public class BeaconWatch {
 	 * Sets the user to max health and max hunger level
 	 * @param player
 	 */
-	public void healPlayer(Player player) {
+	public static void healPlayer(Player player) {
 		int maxHunger = 20;
 		player.offer(Keys.FOOD_LEVEL, maxHunger);
 		player.offer(Keys.HEALTH, player.get(Keys.MAX_HEALTH).get());
@@ -286,6 +311,10 @@ public class BeaconWatch {
 		return counter;
 	}
 
+	public SQLStatements getStatements() {
+		return statements;
+	}
+	
 	/**
 	 * Removes the Arena world if it exists
 	 */
@@ -525,7 +554,7 @@ public class BeaconWatch {
 	//TODO: Fix beacon drop
 	@Listener
 	public void onItemDrop(DropItemEvent.Pre event) {
-		event.getDroppedItems().removeIf(item -> item.getType() == ItemTypes.BEACON);
+		event.getDroppedItems().removeIf(item -> item.getType().equals(ItemTypes.BEACON));
 	}
 
 	@Listener
@@ -665,12 +694,20 @@ public class BeaconWatch {
 				task.cancel();
 			}
 		}).intervalTicks(20).submit(this);
+		//Run commands from config file using For-each loop
+		for (String string : commandsOnResourcePhase) {
+			Sponge.getCommandManager().process(Sponge.getServer().getConsole(), string);
+		}
 	}
 	
 	@Listener
 	public void onPvPPhase(GamePhaseChangeEvent.PvP event) {
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "PVP has been enabled!"));
 		Sponge.getServer().getBroadcastChannel().send(Text.of(TextColors.GOLD, "Phase 2: Find and destroy enemy beacons!"));
+		//Run commands from config file using For-Each loop
+		for (String string : commandsOnPvPPhase) {
+			Sponge.getCommandManager().process(Sponge.getServer().getConsole(), string);
+		}
 	}
 	
 	@Listener
@@ -697,6 +734,10 @@ public class BeaconWatch {
 			e.printStackTrace();
 		} finally {
 			statements.connection.close();
+		}
+		//Run commands from config file using For-Each loop
+		for (String string : commandsOnEndGamePhase) {
+			Sponge.getCommandManager().process(Sponge.getServer().getConsole(), string);
 		}
 	}
 }
