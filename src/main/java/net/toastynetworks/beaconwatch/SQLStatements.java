@@ -6,15 +6,16 @@ import net.kaikk.mc.kaiscommons.sql.SQLConnection;
 import net.kaikk.mc.kaiscommons.sql.SQLConnection.PreparedCachedStatement;
 
 public class SQLStatements {
-	PreparedCachedStatement createTablePlayers, createTableGame, createTablePlayerStatistics, createTableOnlinePlayers, insertPlayer, updatePlayer, insertGame, updateGame, insertOnlinePlayer, deleteOnlinePlayer, truncateOnlinePlayer, insertPlayerStatistics, updatePlayerStatistics, selectPlayerStats;
+	PreparedCachedStatement createTablePlayers, createTableGame, createTablePlayerStatistics, createTableOnlinePlayers, insertPlayer, updatePlayer, insertGame, updateGame, insertOnlinePlayer, deleteOnlinePlayer, truncateOnlinePlayer, insertPlayerStatistics, updatePlayerStatistics, selectPlayerStats, createTableFaction;
 	
 	public SQLConnection connection;
 	public SQLStatements(SQLConnection connection) {
 		this.connection = connection;
-		this.createTablePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS players (uuid CHAR(36) NOT NULL, name CHAR(16) NOT NULL, first_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, time_played INT NOT NULL DEFAULT 0, PRIMARY KEY (uuid))");
+		this.createTablePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS players (uuid CHAR(36) NOT NULL, name CHAR(16) NOT NULL, first_login TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, last_seen TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, time_played INT NOT NULL DEFAULT 0, factionid INT NOT NULL DEFAULT 0, PRIMARY KEY (uuid))");
 		this.createTableGame = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS game (gameid INT NOT NULL AUTO_INCREMENT, time_game_starts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, time_game_ends TIMESTAMP NOT NULL DEFAULT 0 , winning_team TINYINT NOT NULL, PRIMARY KEY (gameid))");
 		this.createTablePlayerStatistics = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS playerstatistics (uuid CHAR(36) NOT NULL, gameid INT NOT NULL, beacons_destroyed INT NOT NULL DEFAULT 0, kills INT NOT NULL DEFAULT 0, deaths INT NOT NULL DEFAULT 0, blocks_broken INT NOT NULL DEFAULT 0, blocks_placed INT NOT NULL DEFAULT 0, team TINYINT UNSIGNED NOT NULL, PRIMARY KEY (gameid, uuid), KEY uuid (uuid))");
 		this.createTableOnlinePlayers = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS onlineplayers (uuid CHAR(36) NOT NULL, PRIMARY KEY (uuid))");
+		this.createTableFaction = connection.prepareCachedStatement("CREATE TABLE IF NOT EXISTS faction (factionid INTEGER NOT NULL AUTO_INCREMENT, name CHAR(16) NOT NULL, PRIMARY KEY (factionid))");
 		this.insertPlayer = connection.prepareCachedStatement("INSERT IGNORE INTO players (uuid, name) VALUES (?, ?)", Types.CHAR, Types.CHAR);
 		this.updatePlayer = connection.prepareCachedStatement("UPDATE players SET last_seen = CURRENT_TIMESTAMP, time_played = time_played + ? WHERE uuid = ?", Types.INTEGER, Types.CHAR);
 		this.insertGame = connection.prepareCachedStatement("INSERT INTO game (winning_team) VALUES (-1)", true);
